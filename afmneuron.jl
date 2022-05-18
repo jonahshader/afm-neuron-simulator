@@ -26,9 +26,9 @@ function Neurons()::Neurons
     Vector{Float64}(), Vector{Float64}(), Vector{Float64}())
 end
 
-function length(n::Neurons)::Int
+function Base.length(n::Neurons)::Int
     # just pick one array, they should all be the same length
-    length(n.θ_init)
+    Base.length(n.θ_init)
 end
 
 mutable struct Component
@@ -96,7 +96,6 @@ function Component(inputs::Vector{String}, outputs::Vector{String})::Component
     end
     comp
 end
-
 
 function get_input_length(c::Component)::Int
     return c.input_length
@@ -206,7 +205,7 @@ function destinations(c::Component)::Vector{Label}
     destinations
 end
 
-# next is the build functions. the build function will output an ODEProblem i guess
+# next is the build functions. the build function will output an ODEProblem
 # sub build functions will be build_p, build u0, build fun
 
 
@@ -221,7 +220,9 @@ function total_neuron_count(c::Component, current_neuron_count::Int)::Int
 end
 
 # p contains weights and runtime neurons
-function build_p(c::Component)::Tuple{Vector{Matrix{Float64}}, Vector{RuntimeNeurons}}
+function build_p_matrices(c::Component)::Vector{Matrix{Float64}}
+    return vcat(c.weights, map(comp -> comp.weight, c.components))
+end
 
 function build_source_dest!(c::Component)
     c.all_sources = build_label_to_indices_map(sources(c))
@@ -230,12 +231,12 @@ end
 
 # takes a list of labels and returns a map from label => int, where label is in labels and int is the label's index
 function build_label_to_indices_map(labels::Vector{Label})::Dict{Label, Int}
-    dict = Dict{Label, Int}
+    dict = Dict{Label, Int}()
     for i in 1:length(labels)
         label = labels[i]
         dict[label] = i
     end
-    label
+    dict
 end
 
 # computes the total number of sources inside this component. represents the number of cols in weights matrix
@@ -264,7 +265,7 @@ function generate_weights_matrix!(c::Component)
 end
 
 # lists all ints in range 1:index_length, but replaces ints with string from str_to_int where possible
-function indices_with_labels(index_length::Int, str_to_int::Dict{String, Int})::Vector{String, Int}
+function indices_with_labels(index_length::Int, str_to_int::Dict{String, Int})::Vector{Union{String, Int}}
     output = Vector{Union{String, Int}}()
     reversed = Dict{Int, String}(value => key for (key, value) in str_to_int)
     for i in 1:index_length

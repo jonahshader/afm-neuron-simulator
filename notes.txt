@@ -1,8 +1,13 @@
-mutable struct Simulation{T<:AbstractFloat}
-    root::Component
-    
-end
+TODO:
+add_neurons!(c::Component, n::Int)
 
-Simulation{T<:AbstractFloat}:
 
-function set_root_component!(sim::Simulation, root::Component)
+add_neurons!(c::Component, labels::Vector{String}) 
+# or should this match how neurons are accessed to reduce confusion? i.e. labels::Vector{Tuple{String}}
+# i guess i can just have both:
+add_neurons!(c::Component, labels::Vector{Tuple{String}})
+
+
+# eventually support removing things (neurons, components, inputs, outputs)
+
+# component default parameters
