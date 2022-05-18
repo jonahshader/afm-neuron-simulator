@@ -1,8 +1,17 @@
-const Label = Union{String, Int, Tuple{Int}, Tuple{Int, Int}, Tuple{Int, String}, Tuple{String, Int}, Tuple{String, String}}
+const Label = Union{String, Int, Tuple{Int}, Tuple{String}, Tuple{Int, Int}, Tuple{Int, String}, Tuple{String, Int}, Tuple{String, String}}
 
 mutable struct Neurons
     θ_init::Vector{Float64}
     dθ_init::Vector{Float64} 
+    sigma::Vector{Float64}
+    a::Vector{Float64}
+    we::Vector{Float64}
+    wex::Vector{Float64}
+    beta::Vector{Float64}
+    bias::Vector{Float64}
+end
+
+mutable struct RuntimeNeurons
     sigma::Vector{Float64}
     a::Vector{Float64}
     we::Vector{Float64}
@@ -211,7 +220,8 @@ function total_neuron_count(c::Component, current_neuron_count::Int)::Int
     current_neuron_count + length(c.neurons) + reduce(+, c.components; init=0)
 end
 
-function build_p(c::Component)
+# p contains weights and runtime neurons
+function build_p(c::Component)::Tuple{Vector{Matrix{Float64}}, Vector{RuntimeNeurons}}
 
 function build_source_dest!(c::Component)
     c.all_sources = build_label_to_indices_map(sources(c))
