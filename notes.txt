@@ -1,0 +1,8 @@
+mutable struct Simulation{T<:AbstractFloat}
+    root::Component
+    
+end
+
+Simulation{T<:AbstractFloat}:
+
+function set_root_component!(sim::Simulation, root::Component)
