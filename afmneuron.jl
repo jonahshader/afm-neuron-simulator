@@ -197,7 +197,7 @@ function destinations(c::Component)::Vector{Label}
     destinations
 end
 
-# next is the build functions. the build funciton will output and ODEProblem i guess
+# next is the build functions. the build function will output an ODEProblem i guess
 # sub build functions will be build_p, build u0, build fun
 
 
@@ -206,6 +206,12 @@ end
 
 
 # PRIVATE FUNCTIONS. TODO: move to other file and use here, just don't re export them
+
+function total_neuron_count(c::Component, current_neuron_count::Int)::Int
+    current_neuron_count + length(c.neurons) + reduce(+, c.components; init=0)
+end
+
+function build_p(c::Component)
 
 function build_source_dest!(c::Component)
     c.all_sources = build_label_to_indices_map(sources(c))
