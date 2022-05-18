@@ -1,4 +1,5 @@
 TODO:
+# maybe add_neurons! should be where the default parameters are specified, and can be optionally overrided here? i think this makes sense
 add_neurons!(c::Component, n::Int)
 
 
@@ -6,8 +7,14 @@ add_neurons!(c::Component, labels::Vector{String})
 # or should this match how neurons are accessed to reduce confusion? i.e. labels::Vector{Tuple{String}}
 # i guess i can just have both:
 add_neurons!(c::Component, labels::Vector{Tuple{String}})
+the latter will just call the former
 
 
 # eventually support removing things (neurons, components, inputs, outputs)
 
 # component default parameters
+
+# how should parameter logging work? maybe provide a wrapper over DiffEqu's logged data to add labels?
+get_data(result::ODEResult???, )
+
+# its at the point where the project needs to be split into separate files with one struct each and the methods defined for them
