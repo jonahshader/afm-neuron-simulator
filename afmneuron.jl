@@ -39,7 +39,7 @@ function Component(input_length::Int, output_length::Int)::Component
         zeros(Float64, 1, 1),
         Dict{Label, Int}(),
         Dict{Label, Int}())
-    generate_weights_matrix!(comp)
+    build_weights_matrix!(comp)
     build_source_dest!(comp)
     comp
 end
@@ -96,11 +96,15 @@ function add_component!(parent::Component, child::Component, name::String)
     push!(parent.components, child)
     @assert !haskey(parent.component_labels, name)
     parent.component_labels[name] = length(parent.components)
+    build_source_dest!(parent)
+    build_weights_matrix!(parent)
+    nothing
 end
 
 # add a child component to a parent (no name)
 function add_component!(parent::Component, child::Component)
     push!(parent.components, child)
+    nothing
 end
 
 # method for tree navigation of components via component[string] syntax
@@ -117,6 +121,7 @@ function set_weight!(c::Component, source::Label, destination::Label, weight::Ab
     row = c.all_destinations[destination]
     col = c.all_sources[source]
     c.weights[row, col] = weight
+    nothing
 end
 
 # these are specified opposite of the weight matrix: sources correspond to rows, destinations correspond to cols
@@ -129,6 +134,7 @@ function set_weights!(c::Component, sources::Vector{Label}, destinations::Vector
             c.weights[destination_index, source_index] = weights[source_index, destination_index]
         end
     end
+    nothing
 end
 
 
@@ -213,6 +219,7 @@ end
 function build_source_dest!(c::Component)
     c.all_sources = build_label_to_indices_map(sources(c))
     c.all_destinations = build_label_to_indices_map(destinations(c))
+    return
 end
 
 # takes a list of labels and returns a map from label => int, where label is in labels and int is the label's index
@@ -244,10 +251,11 @@ function internal_destination_length(c::Component)::Int
     curr_length
 end
 
-function generate_weights_matrix!(c::Component)
+function build_weights_matrix!(c::Component)
     rows = internal_destination_length(c)
     cols = internal_source_length(c)
     c.weights = zeros(Float64, rows, cols)
+    return
 end
 
 # lists all ints in range 1:index_length, but replaces ints with string from str_to_int where possible
@@ -256,7 +264,7 @@ function indices_with_labels(index_length::Int, str_to_int::Dict{String, Int})::
     reversed = Dict{Int, String}(value => key for (key, value) in str_to_int)
     for i in 1:index_length
         if haskey(reversed, i)
-            push!(output, c.reversed[i])
+            push!(output, reversed[i])
         else
             push!(output, i)
         end

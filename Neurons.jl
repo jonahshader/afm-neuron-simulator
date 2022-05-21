@@ -7,8 +7,8 @@ const _a = 0.01
 const _fe = 1.75 * GIGA
 const _sigma = 2.16 * TERA
 
-const _wex = fex * 2pi
-const _we = fe * 2pi
+const _wex = _fex * 2pi
+const _we = _fe * 2pi
 const _beta = 0.11 * FEMTO
 
 const ϵ = 1e-8
