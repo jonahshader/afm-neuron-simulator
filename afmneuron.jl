@@ -1,15 +1,6 @@
 const Label = Union{String, Int, Tuple{Int}, Tuple{String}, Tuple{Int, Int}, Tuple{Int, String}, Tuple{String, Int}, Tuple{String, String}}
 
-mutable struct Neurons
-    θ_init::Vector{Float64}
-    dθ_init::Vector{Float64} 
-    sigma::Vector{Float64}
-    a::Vector{Float64}
-    we::Vector{Float64}
-    wex::Vector{Float64}
-    beta::Vector{Float64}
-    bias::Vector{Float64}
-end
+include("Neurons.jl")
 
 mutable struct RuntimeNeurons
     sigma::Vector{Float64}
@@ -18,17 +9,6 @@ mutable struct RuntimeNeurons
     wex::Vector{Float64}
     beta::Vector{Float64}
     bias::Vector{Float64}
-end
-
-function Neurons()::Neurons
-    Neurons(Vector{Float64}(), Vector{Float64}(), 
-    Vector{Float64}(), Vector{Float64}(), Vector{Float64}(), 
-    Vector{Float64}(), Vector{Float64}(), Vector{Float64}())
-end
-
-function Base.length(n::Neurons)::Int
-    # just pick one array, they should all be the same length
-    Base.length(n.θ_init)
 end
 
 mutable struct Component
@@ -49,6 +29,7 @@ mutable struct Component
     all_destinations::Dict{Label, Int}
 end
 
+# outer constructors
 function Component(input_length::Int, output_length::Int)::Component
     comp = Component(
         input_length, Dict{String, Int}(),
@@ -97,13 +78,18 @@ function Component(inputs::Vector{String}, outputs::Vector{String})::Component
     comp
 end
 
-function get_input_length(c::Component)::Int
-    return c.input_length
-end
+input_length(c::Component) = c.input_length
+output_length(c::Component) = c.output_length
 
-function get_output_length(c::Component)::Int
-    return c.output_length
-end
+# these methods return arrays of labels, which can be used for indexing
+# they return Vector{String, Int}, so the user needs to convert them to the appropriate format
+# when using them later for referencing. E.g. neurons are referenced with the type Tuple{Union{String, Int}}
+# and components are referenced with the type Tuple{Union{String, Int}, Union{String, Int}}
+inputs(c::Component) = indices_with_labels(c.input_length, c.input_labels)
+outputs(c::Component) = indices_with_labels(c.output_length, c.output_labels)
+neurons(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
+components(c::Component) = indices_with_labels(length(c.components), c.component_labels)
+
 
 # adds a child component to parent, with a name
 function add_component!(parent::Component, child::Component, name::String)
@@ -117,29 +103,14 @@ function add_component!(parent::Component, child::Component)
     push!(parent.components, child)
 end
 
+# method for tree navigation of components via component[string] syntax
 function Base.getindex(c::Component, key::String)::Component
     return c.components[c.component_labels[key]]
 end
 
+# method for tree navigation of components via component[int] syntax
 function Base.getindex(c::Component, index::Int)::Component
     return c.components[index]
-end
-
-function inputs(c::Component)::Vector{Union{String, Int}}
-    indices_with_labels(c.input_length, c.input_labels)
-end
-
-function outputs(c::Component)::Vector{Union{String, Int}}
-    indices_with_labels(c.output_length, c.output_labels)
-end
-
-# NOT in tuples, just normal int or string
-function neurons(c::Component)::Vector{Union{String, Int}}
-    indices_with_labels(length(c.neurons), c.neuron_labels)
-end
-
-function components(c::Component)::Vector{Union{String, Int}}
-    indices_with_labels(length(c.components), c.component_labels)
 end
 
 function set_weight!(c::Component, source::Label, destination::Label, weight::AbstractFloat)
@@ -162,11 +133,15 @@ end
 
 
 # inputs are ints or strings, neurons are tuples of ints or strings of length one, components are tuples of ints or strings of length two (name, output)
+# sources are voltages that can be passed through the weights to get current. 
+# these consist of the current component's inputs, the current component's neuron's outputs, and the subcomponent's outputs
 function sources(c::Component)::Vector{Label}
     sources = Vector{Label}()
+    # all of c's inputs are sources, so add them to the sources vector
     for i in inputs(c)
         push!(sources, i)
     end
+    # all of c's neurons are outputs, and we address them as tuples of size one
     for n in neurons(c)
         push!(sources, (n,))
     end
@@ -215,13 +190,24 @@ end
 
 # PRIVATE FUNCTIONS. TODO: move to other file and use here, just don't re export them
 
+# applies f to c tree in depth first order, returns array of results from applying f to every c
+function map_component_depth_first(f, c::Component)
+    return vcat([f(c)], map(x -> map_component_depth_first(f, x), c.components)...)
+end
+
+# same thing as map_component_depth_first, but does not put each result into an element in an array
+# instead every result is concatinated into one array
+function map_component_array_depth_first(f, c::Component)
+    return vcat(f(c), map(x -> map_component_depth_first(f, x), c.components)...)
+end
+
 function total_neuron_count(c::Component, current_neuron_count::Int)::Int
     current_neuron_count + length(c.neurons) + reduce(+, c.components; init=0)
 end
 
 # p contains weights and runtime neurons
-function build_p_matrices(c::Component)::Vector{Matrix{Float64}}
-    return vcat(c.weights, map(comp -> comp.weight, c.components))
+function build_p_matrices(c::Component)
+    return map_component_depth_first(comp->comp.weights, c)
 end
 
 function build_source_dest!(c::Component)
@@ -244,7 +230,7 @@ function internal_source_length(c::Component)::Int
     curr_length = c.input_length
     curr_length += length(c.neurons)
     for sc::Component in c.components
-        curr_length += get_output_length(sc)
+        curr_length += output_length(sc)
     end
     curr_length
 end
@@ -253,7 +239,7 @@ function internal_destination_length(c::Component)::Int
     curr_length = c.output_length
     curr_length += length(c.neurons)
     for sc::Component in c.components
-        curr_length += get_input_length(sc)
+        curr_length += input_length(sc)
     end
     curr_length
 end
