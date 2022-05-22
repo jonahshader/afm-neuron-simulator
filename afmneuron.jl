@@ -2,15 +2,6 @@ const Label = Union{String, Int, Tuple{Int}, Tuple{String}, Tuple{Int, Int}, Tup
 
 include("Neurons.jl")
 
-mutable struct RuntimeNeurons
-    sigma::Vector{Float64}
-    a::Vector{Float64}
-    we::Vector{Float64}
-    wex::Vector{Float64}
-    beta::Vector{Float64}
-    bias::Vector{Float64}
-end
-
 mutable struct Component
     input_length::Int
     input_labels::Dict{String, Int}
@@ -193,6 +184,61 @@ end
 # make unique shallow (only current component is made unique)
 # make unique deep (current component and all children component are made unique)
 
+# u0 is 
+function build_u0(c::Component)
+    θ_init = map_component_array_depth_first(c->c.neurons.θ_init, c)
+    dθ_init = map_component_array_depth_first(c->c.neurons.dθ_init, c)
+
+    return hcat(θ_init, dθ_init)
+end
+
+function build_p(c::Component)
+    # creates a vector of tuples with the component's weights, two temp arrays for storing the mm result and input, and the neurons
+    return map_component_depth_first(c->(c.weights, zeros(Float64, size(c.weights, 1)), zeros(Float64, size(c.weights, 2)) c.neurons), c)
+end
+
+function build_diff_eq(c::Component, inputs::Vector{Function})
+    return function afm_diff_eq_root!(du, u, p, t)
+        # wip
+        # curr_input = 
+    end
+end
+
+# comp_input is in voltage
+function afm_diff_eq!(du, u, p, t, comp_input)
+    weights, result_temp, input_temp, neurons = p
+    weights_curr = view(weights, 1)
+    results_temp_curr = view(results_temp, 1)
+    input_temp_curr = view(input_temp, 1)
+    neurons_curr = view(neurons, 1)
+
+    dθ = view(u, :, 2)
+    dθ_curr = view(dθ, length(neurons_curr))
+
+    # copy over comp_input.
+    current_length = 1
+    next_length = length(comp_input)
+    comp_input_view = view(input_temp_curr, current_length:next_length)
+    comp_input_view .= comp_input
+
+    # copy over neuron outputs...
+    current_length = next_length + 1
+    next_length += length(dθ_curr)
+    dθ_view = view(input_temp_curr, current_length:next_length)
+    dθ_view .= dθ_curr # TODO: scale by whatever it is to get voltage from angular vel
+
+    # copy over component outputs...
+    current_length = next_length + 1
+    next_length = size(weights_curr, 2)
+
+    # if this view is non-zero, we need to compute children
+    if next_length - current_length >= 0
+        
+    end
+
+
+end
+
 
 # PRIVATE FUNCTIONS. TODO: move to other file and use here, just don't re export them
 
@@ -207,9 +253,10 @@ function map_component_array_depth_first(f, c::Component)
     return vcat(f(c), map(x -> map_component_depth_first(f, x), c.components)...)
 end
 
-function total_neuron_count(c::Component, current_neuron_count::Int)::Int
-    current_neuron_count + length(c.neurons) + reduce(+, c.components; init=0)
-end
+# TODO: rewrite this
+# function total_neuron_count(c::Component, current_neuron_count::Int)::Int
+#     current_neuron_count + length(c.neurons) + reduce(+, c.components; init=0)
+# end
 
 # p contains weights and runtime neurons
 function build_p_matrices(c::Component)
@@ -251,6 +298,8 @@ function internal_destination_length(c::Component)::Int
     curr_length
 end
 
+# creates a weights matrix with the appropriate shape
+# TODO: create a version of this that resizes the matrix, maintaining the valid weights instead of replacing everything with zeros
 function build_weights_matrix!(c::Component)
     rows = internal_destination_length(c)
     cols = internal_source_length(c)

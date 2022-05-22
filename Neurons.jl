@@ -38,7 +38,7 @@ end
 
 # neurons: the neurons struct that will be added to
 # n: number of neurons to add with the specified values
-function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Float64=nothing, dθ_init=0.0, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=0.0023)
+function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Union{Float64, Nothing}=nothing, dθ_init=0.0, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=0.0023)
     # if θ_init is nothing, then initialize it to the resting position calculated from bias - ϵ (or + ϵ)
     # if there is no resting positon due to bias being higher than some threshold, then initialize it to zero i guess
     
@@ -47,13 +47,14 @@ function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Float64=nothing, dθ_
     # however, if bias is too high and dampening is too low, then dθ could explode, making the above pointless
     
     # determine θ
-    θ_init_calculated = θ_init
-    if isnothing(θ_init_calculated)
+    θ_init_calculated = 0.0
+    if isnothing(θ_init)
         temp = 2*sigma * bias / we
         if -1 <= temp <= 1
             θ_init_calculated = (asin(temp)/2) - ϵ
-        else
-            θ_init_calculated = 0
+        # else
+        #     # TODO: calculate velocity here
+        #     θ_init_calculated = 0
         end
     end
 
