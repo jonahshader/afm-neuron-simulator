@@ -1,6 +1,8 @@
 const Label = Union{String, Int, Tuple{Int}, Tuple{String}, Tuple{Int, Int}, Tuple{Int, String}, Tuple{String, Int}, Tuple{String, String}}
 
 include("Neurons.jl")
+include("utils.jl")
+include("labeled.jl")
 
 mutable struct Component
     input_length::Int
@@ -15,9 +17,13 @@ mutable struct Component
     neurons::Neurons
     neuron_labels::Dict{String, Int}
 
-    weights::AbstractMatrix{Float64}
-    all_sources::Dict{Label, Int}
-    all_destinations::Dict{Label, Int}
+    # weights::AbstractMatrix{Float64}
+    # output weights goes from {Neurons, Component Outputs} -> Outputs
+    # shape is output_length x sum(x -> x.output_length, components)
+    output_weights::LabeledMatrix{Float64}
+    # non output weights are everyting - output_weights
+    # this goes from {Inputs, Neurons, Component Outputs} -> {Neurons, Component Outputs}
+    non_output_weights::LabeledMatrix{AbstractMatrix{Float64}}
 end
 
 # outer constructors
@@ -27,7 +33,7 @@ function Component(input_length::Int, output_length::Int)::Component
         output_length, Dict{String, Int}(),
         Vector{Component}(), Dict{String, Int}(),
         Neurons(), Dict{String, Int}(),
-        zeros(Float64, 1, 1),
+        zeros(Float64, 1, 1), zeros(Float64, 1, 1),
         Dict{Label, Int}(),
         Dict{Label, Int}())
     build_weights_matrix!(comp)
@@ -73,7 +79,7 @@ input_length(c::Component) = c.input_length
 output_length(c::Component) = c.output_length
 
 # these methods return arrays of labels, which can be used for indexing
-# they return Vector{String, Int}, so the user needs to convert them to the appropriate format
+# they return Vector{Union{String, Int}}, so the user needs to convert them to the appropriate format
 # when using them later for referencing. E.g. neurons are referenced with the type Tuple{Union{String, Int}}
 # and components are referenced with the type Tuple{Union{String, Int}, Union{String, Int}}
 inputs(c::Component) = indices_with_labels(c.input_length, c.input_labels)
@@ -206,37 +212,44 @@ end
 
 # comp_input is in voltage
 function afm_diff_eq!(du, u, p, t, comp_input)
+    # weights, result_temp, input_temp, neurons = p
+    # weights_curr = view(weights, 1)
+    # results_temp_curr = view(results_temp, 1)
+    # input_temp_curr = view(input_temp, 1)
+    # neurons_curr = view(neurons, 1)
+
+    # dθ = view(u, :, 2)
+    # dθ_curr = view(dθ, length(neurons_curr))
+
+    # # copy over comp_input.
+    # current_length = 1
+    # next_length = length(comp_input)
+    # comp_input_view = view(input_temp_curr, current_length:next_length)
+    # comp_input_view .= comp_input
+
+    # # copy over neuron outputs...
+    # current_length = next_length + 1
+    # next_length += length(dθ_curr)
+    # dθ_view = view(input_temp_curr, current_length:next_length)
+    # dθ_view .= dθ_curr # TODO: scale by whatever it is to get voltage from angular vel
+
+    # # copy over component outputs...
+    # current_length = next_length + 1
+    # next_length = size(weights_curr, 2)
+
+    # # if this view is non-zero, we need to compute children
+    # if next_length - current_length >= 0
+
+    # end
+end
+
+# returns output
+function compute_output(u, p, comp_input)
     weights, result_temp, input_temp, neurons = p
     weights_curr = view(weights, 1)
     results_temp_curr = view(results_temp, 1)
     input_temp_curr = view(input_temp, 1)
     neurons_curr = view(neurons, 1)
-
-    dθ = view(u, :, 2)
-    dθ_curr = view(dθ, length(neurons_curr))
-
-    # copy over comp_input.
-    current_length = 1
-    next_length = length(comp_input)
-    comp_input_view = view(input_temp_curr, current_length:next_length)
-    comp_input_view .= comp_input
-
-    # copy over neuron outputs...
-    current_length = next_length + 1
-    next_length += length(dθ_curr)
-    dθ_view = view(input_temp_curr, current_length:next_length)
-    dθ_view .= dθ_curr # TODO: scale by whatever it is to get voltage from angular vel
-
-    # copy over component outputs...
-    current_length = next_length + 1
-    next_length = size(weights_curr, 2)
-
-    # if this view is non-zero, we need to compute children
-    if next_length - current_length >= 0
-        
-    end
-
-
 end
 
 
@@ -301,22 +314,10 @@ end
 # creates a weights matrix with the appropriate shape
 # TODO: create a version of this that resizes the matrix, maintaining the valid weights instead of replacing everything with zeros
 function build_weights_matrix!(c::Component)
-    rows = internal_destination_length(c)
-    cols = internal_source_length(c)
-    c.weights = zeros(Float64, rows, cols)
+    d = internal_destination_length(c)
+    s = internal_source_length(c)
+    c.output_weights = zeros(Float64, c.output_length, s - c.input_length)
+    c.non_output_weights = zeros(Float64, d - c.output_length, s)
     return
 end
 
-# lists all ints in range 1:index_length, but replaces ints with string from str_to_int where possible
-function indices_with_labels(index_length::Int, str_to_int::Dict{String, Int})::Vector{Union{String, Int}}
-    output = Vector{Union{String, Int}}()
-    reversed = Dict{Int, String}(value => key for (key, value) in str_to_int)
-    for i in 1:index_length
-        if haskey(reversed, i)
-            push!(output, reversed[i])
-        else
-            push!(output, i)
-        end
-    end
-    output
-end
