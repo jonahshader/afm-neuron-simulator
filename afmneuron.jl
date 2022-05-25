@@ -242,16 +242,7 @@ end
 
 # PRIVATE FUNCTIONS. TODO: move to other file and use here, just don't re export them
 
-# applies f to c tree in depth first order, returns array of results from applying f to every c
-function map_component_depth_first(f, c::Component)
-    return vcat([f(c)], map(x -> map_component_depth_first(f, x), c.components)...)
-end
 
-# same thing as map_component_depth_first, but does not put each result into an element in an array
-# instead every result is concatinated into one array
-function map_component_array_depth_first(f, c::Component)
-    return vcat(f(c), map(x -> map_component_depth_first(f, x), c.components)...)
-end
 
 # TODO: rewrite this
 # function total_neuron_count(c::Component, current_neuron_count::Int)::Int

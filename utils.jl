@@ -11,3 +11,19 @@ function indices_with_labels(index_length::Int, str_to_int::Dict{String, Int})::
     end
     output
 end
+
+# applies f to c tree in depth first order, returns array of results from applying f to every c
+function map_component_depth_first(f, c)
+    return vcat([f(c)], map(x -> map_component_depth_first(f, x), c.components)...)
+end
+
+# same thing as map_component_depth_first, but does not put each result into an element in an array
+# instead every result is concatinated into one array
+function map_component_array_depth_first(f, c)
+    if isempty(c.components)
+        return f(c)
+    else
+        return vcat(f(c), map(x -> map_component_array_depth_first(f, x), c.components)...)
+    end
+    
+end
