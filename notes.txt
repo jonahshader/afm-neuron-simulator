@@ -18,3 +18,12 @@ the latter will just call the former
 get_data(result::ODEResult???, )
 
 # its at the point where the project needs to be split into separate files with one struct each and the methods defined for them
+
+
+
+good idea: make the components "fake", as in when a user adds a component to a component, it copy pastes it and appends the component name to the end of the labels
+this should allow me to make a grand list of neurons and edges very easily, and then convert it to a sparse/dense matrix
+
+make a struct that wraps a component and gives it a name. need this because the component shouldn't have a name itself, but instances of that 
+component inside another component should have a name. actually now that im thinking about it, this might not be any different than having a label in paralled to the
+vector of components. 
