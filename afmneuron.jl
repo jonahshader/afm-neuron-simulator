@@ -2,17 +2,15 @@ const Label = Union{String, Int, Tuple{Int}, Tuple{String}, Tuple{Int, Int}, Tup
 
 include("Neurons.jl")
 include("utils.jl")
-include("labeled.jl")
+include("labeledmatrix.jl")
+include("labeledlength.jl")
+include("labeledvector.jl")
 
 mutable struct Component
-    input_length::Int
-    input_labels::Dict{String, Int}
+    input::LabeledLength{String}
+    output::LabeledLength{String}
 
-    output_length::Int
-    output_labels::Dict{String, Int}
-
-    components::Vector{Component}
-    component_labels::Dict{String, Int}
+    components::LabeledVector{Component, String}
 
     neurons::Neurons
     neuron_labels::Dict{String, Int}
@@ -20,44 +18,34 @@ mutable struct Component
     # weights::AbstractMatrix{Float64}
     # output weights goes from {Neurons, Component Outputs} -> Outputs
     # shape is output_length x sum(x -> x.output_length, components)
-    output_weights::LabeledMatrix{Float64}
+    output_weights::LabeledMatrix{Float64, Label}
     # non output weights are everyting - output_weights
     # this goes from {Inputs, Neurons, Component Outputs} -> {Neurons, Component Outputs}
-    non_output_weights::LabeledMatrix{AbstractMatrix{Float64}}
+    non_output_weights::LabeledMatrix{Float64, Label}
 end
 
 # outer constructors
 function Component(input_length::Int, output_length::Int)::Component
     comp = Component(
-        input_length, Dict{String, Int}(),
-        output_length, Dict{String, Int}(),
-        Vector{Component}(), Dict{String, Int}(),
+        LabeledLength(input_length), LabeledLength(output_length),
+        LabeledVector(Vector{Component}()),
         Neurons(), Dict{String, Int}(),
-        zeros(Float64, 1, 1), zeros(Float64, 1, 1),
-        Dict{Label, Int}(),
-        Dict{Label, Int}())
+        LabeledMatrix(zeros(Float64, 1, 1)), LabeledMatrix(zeros(Float64, 1, 1)))
     build_weights_matrix!(comp)
-    build_source_dest!(comp)
     comp
 end
 
 function Component(input_length::Int, outputs::Vector{String})::Component
     output_length = length(outputs)
     comp = Component(input_length, output_length)
-    # pass inputs to input labels
-    for i in 1:output_length
-        comp.output_labels[outputs[i]] = i
-    end
+    set_labels!(comp.output, outputs)
     comp
 end
 
 function Component(inputs::Vector{String}, output_length::Int)::Component
     input_length = length(inputs)
     comp = Component(input_length, output_length)
-    # pass outputs to output labels
-    for i in 1:input_length
-        comp.input_labels[inputs[i]] = i
-    end
+    set_labels!(comp.input, inputs)
     comp
 end
 
@@ -66,24 +54,20 @@ function Component(inputs::Vector{String}, outputs::Vector{String})::Component
     output_length = length(outputs)
     comp = Component(input_length, output_length)
     # pass inputs and outputs to labels
-    for i in 1:input_length
-        comp.input_labels[inputs[i]] = i
-    end
-    for i in 1:output_length
-        comp.output_labels[outputs[i]] = i
-    end
+    set_labels!(comp.output, outputs)
+    set_labels!(comp.input, inputs)
     comp
 end
 
-input_length(c::Component) = c.input_length
-output_length(c::Component) = c.output_length
+input_length(c::Component) = length(c.input)
+output_length(c::Component) = length(c.output)
 
 # these methods return arrays of labels, which can be used for indexing
 # they return Vector{Union{String, Int}}, so the user needs to convert them to the appropriate format
 # when using them later for referencing. E.g. neurons are referenced with the type Tuple{Union{String, Int}}
 # and components are referenced with the type Tuple{Union{String, Int}, Union{String, Int}}
-inputs(c::Component) = indices_with_labels(c.input_length, c.input_labels)
-outputs(c::Component) = indices_with_labels(c.output_length, c.output_labels)
+inputs(c::Component) = indices_with_labels(input_length(c), c.input_labels)
+outputs(c::Component) = indices_with_labels(output_length(c), c.output_labels)
 neurons(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
 components(c::Component) = indices_with_labels(length(c.components), c.component_labels)
 
@@ -93,7 +77,6 @@ function add_component!(parent::Component, child::Component, name::String)
     push!(parent.components, child)
     @assert !haskey(parent.component_labels, name)
     parent.component_labels[name] = length(parent.components)
-    build_source_dest!(parent)
     build_weights_matrix!(parent)
     nothing
 end
@@ -101,6 +84,7 @@ end
 # add a child component to a parent (no name)
 function add_component!(parent::Component, child::Component)
     push!(parent.components, child)
+    build_weights_matrix!(parent)
     nothing
 end
 
@@ -115,9 +99,12 @@ function Base.getindex(c::Component, index::Int)::Component
 end
 
 function set_weight!(c::Component, source::Label, destination::Label, weight::AbstractFloat)
-    row = c.all_destinations[destination]
-    col = c.all_sources[source]
-    c.weights[row, col] = weight
+    c.non_output_weights[destination, source] = weight
+    nothing
+end
+
+function set_weight!(c::Component, source::Label, destination::Int, weight::AbstractFloat)
+    c.output_weights[destination, source] = weight
     nothing
 end
 
@@ -276,12 +263,6 @@ function build_p_matrices(c::Component)
     return map_component_depth_first(comp->comp.weights, c)
 end
 
-function build_source_dest!(c::Component)
-    c.all_sources = build_label_to_indices_map(sources(c))
-    c.all_destinations = build_label_to_indices_map(destinations(c))
-    return
-end
-
 # takes a list of labels and returns a map from label => int, where label is in labels and int is the label's index
 function build_label_to_indices_map(labels::Vector{Label})::Dict{Label, Int}
     dict = Dict{Label, Int}()
@@ -316,8 +297,8 @@ end
 function build_weights_matrix!(c::Component)
     d = internal_destination_length(c)
     s = internal_source_length(c)
-    c.output_weights = zeros(Float64, c.output_length, s - c.input_length)
-    c.non_output_weights = zeros(Float64, d - c.output_length, s)
-    return
+    c.output_weights = LabeledMatrix(zeros(Float64, c.output_length, s - c.input_length))
+    c.non_output_weights = LabeledMatrix(zeros(Float64, d - c.output_length, s))
+
 end
 
