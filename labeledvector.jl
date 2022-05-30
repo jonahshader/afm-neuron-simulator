@@ -17,13 +17,24 @@ get_vector(v::LabeledVector) = v.vector
 
 Base.getindex(v::LabeledVector, i1::Int)= v.vector[i1]
 Base.getindex(v::LabeledVector{T, L}, i1::L) where {T, L} = v.vector[v.labels[i1]]
+Base.push!(lv::LabeledVector{T, L}, x::T) where {T, L} = push!(lv.vector, x)
+function push!(lv::LabeledVector{T, L}, x::T, label::L) where {T, L}
+    push!(lv, x)
+    set_label!(lv, length(lv), label)
+end
+
+function haslabel(lv::LabeledVector{T, L}, label::L) where {T, L}
+    haskey(lv.labels, label)
+end
 
 function Base.setindex!(v::LabeledVector, x, i1::Int)
     v.vector[i1] = x
+    nothing
 end
 
-function Base.setindex(v::LabeledVector{T, L}, x, i1::L) where {T, L}
+function Base.setindex!(v::LabeledVector{T, L}, x, i1::L) where {T, L}
     v.vector[labels[i1]] = x
+    nothing
 end
 
 function get_label(v::LabeledVector, index::Int)
