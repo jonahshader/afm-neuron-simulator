@@ -69,6 +69,10 @@ outputs(c::Component) = indices_with_labels(output_length(c), c.output.labels)
 neurons(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
 components(c::Component) = indices_with_labels(length(c.components), c.components.labels)
 
+function add_neurons!(c::Component, n::Int)
+    add_neurons!(c.neurons, n)
+end
+
 function add_component!(parent::Component, child::Component, name::String)
     @assert !haslabel(parent.components, name)
     push_and_label!(parent.components, child, name)
