@@ -1,0 +1,12 @@
+include("afmneuron_rewritten.jl")
+full_adder = Component(["a", "b", "c-in"], ["sum", "c-out"])
+xor = Component(2, 1)
+add_component!(full_adder, xor, "xor1")
+add_component!(full_adder, xor, "xor2")
+and = Component(2, 1)
+add_component!(full_adder, and, "and1")
+add_component!(full_adder, and, "and2")
+or = Component(2, 1)
+add_component!(full_adder, or, "or1")
+
+set_weight!(full_adder, "a", ("xor1", 1), 8.0)
