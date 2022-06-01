@@ -1,7 +1,9 @@
 include("afmneuron_rewritten.jl")
 
+using AutoHashEquals
+
 const Path = Vector{Union{String, Int}}
-struct Node
+@auto_hash_equals struct Node
     path::Path
     name::Union{String, Int}
     type::Symbol
@@ -43,20 +45,6 @@ function make_qualified_nodes(root::Component, current_path::Path, input_nodes::
         push!(nodes, Node(copy(current_path), neuron, :neuron))
     end
 
-    # my_input_nodes = Vector{Node}()
-    # for input in inputs(root)
-    #     new_input_node = Node(copy(current_path), input, :input)
-    #     push!(my_input_nodes, new_input_node)
-    #     # push!(nodes, new_input_node)
-    # end
-
-    # my_output_nodes = Vector{Node}()
-    # for output in outputs(root)
-    #     new_output_node = Node(copy(current_path), output, :output)
-    #     push!(my_output_nodes, new_output_node)
-    #     # push!(nodes, new_output_node)
-    # end
-
     for clabel in components(root)
         c = root[clabel]
         comp_input_nodes = Vector{Node}()
@@ -73,3 +61,5 @@ function make_qualified_nodes(root::Component, current_path::Path, input_nodes::
 
     nodes
 end
+
+# TODO: modify make functions here to generate weights in addition to nodes
