@@ -63,3 +63,4 @@ function make_qualified_nodes(root::Component, current_path::Path, input_nodes::
 end
 
 # TODO: modify make functions here to generate weights in addition to nodes
+# TODO: add UUIDs to components
