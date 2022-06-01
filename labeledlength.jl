@@ -4,7 +4,9 @@ mutable struct LabeledLength{L}
     labels_reversed::Dict{Int, L}
 end
 
-LabeledLength(length::Int) where {L} = LabeledLength{L}(length, Dict{L, Int}(), Dict{Int, L}())
+function LabeledLength{L}(length::Int) where {L}
+    LabeledLength{L}(length, Dict{L, Int}(), Dict{Int, L}())
+end
 
 function get_label(l::LabeledLength, index::Int)
     if haskey(l.labels_reversed, index)
@@ -22,12 +24,19 @@ function get_index(l::LabeledLength{L}, label::L) where {L}
     end
 end
 
-function set_label(l::LabeledLength{L}, index::Int, label::L) where {L}
+function set_label!(l::LabeledLength{L}, index::Int, label::L) where {L}
     @assert !haskey(l.labels, label)
     l.labels[label] = index
     l.labels_reversed[index] = label
 end
 
+function set_labels!(l::LabeledLength{L}, labels::AbstractVector{L}) where {L}
+    for i in enumerate(labels)
+        set_label!(l, i...)
+    end
+end
+
 function Base.length(l::LabeledLength)
     return l.length
 end
+

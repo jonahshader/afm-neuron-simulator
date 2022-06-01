@@ -6,7 +6,7 @@ mutable struct LabeledMatrix{T, L}
     col_labels_reversed::Dict{Int, L}
 end
 
-LabeledMatrix(matrix::T) where {T, L} = LabeledMatrix{T, L}(matrix, Dict{L, Int}(), Dict{Int, L}(), Dict{L, Int}(), Dict{Int, L}())
+LabeledMatrix{T, L}(matrix::AbstractMatrix{T}) where {T, L} = LabeledMatrix{T, L}(matrix, Dict{L, Int}(), Dict{Int, L}(), Dict{L, Int}(), Dict{Int, L}())
 
 get_matrix(m::LabeledMatrix) = m.matrix
 
@@ -58,5 +58,15 @@ function set_col_label!(m::LabeledMatrix{T, L}, col::Int, label::L) where {T, L}
     @assert !haskey(m.col_labels, label)
     m.col_labels[label] = col
     m.col_labels_reversed[col] = label
+    nothing
+end
+
+function set_labels!(m::LabeledMatrix{T, L}, row_labels::AbstractVector{L}, col_labels::AbstractVector{L}) where {T, L}
+    for i in enumerate(row_labels)
+        set_row_label!(m, i...)
+    end
+    for i in enumerate(col_labels)
+        set_col_label!(m, i...)
+    end
     nothing
 end

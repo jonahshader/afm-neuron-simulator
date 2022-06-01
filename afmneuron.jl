@@ -27,10 +27,10 @@ end
 # outer constructors
 function Component(input_length::Int, output_length::Int)::Component
     comp = Component(
-        LabeledLength(input_length), LabeledLength(output_length),
-        LabeledVector(Vector{Component}()),
+        LabeledLength{String}(input_length), LabeledLength{String}(output_length),
+        LabeledVector{Component, String}(Vector{Component}()),
         Neurons(), Dict{String, Int}(),
-        LabeledMatrix(zeros(Float64, 1, 1)), LabeledMatrix(zeros(Float64, 1, 1)))
+        LabeledMatrix{Float64, Label}(zeros(Float64, 1, 1)), LabeledMatrix{Float64, Label}(zeros(Float64, 1, 1)))
     build_weights_matrix!(comp)
     comp
 end
@@ -66,17 +66,16 @@ output_length(c::Component) = length(c.output)
 # they return Vector{Union{String, Int}}, so the user needs to convert them to the appropriate format
 # when using them later for referencing. E.g. neurons are referenced with the type Tuple{Union{String, Int}}
 # and components are referenced with the type Tuple{Union{String, Int}, Union{String, Int}}
-inputs(c::Component) = indices_with_labels(input_length(c), c.input_labels)
-outputs(c::Component) = indices_with_labels(output_length(c), c.output_labels)
+inputs(c::Component) = indices_with_labels(input_length(c), c.input.labels)
+outputs(c::Component) = indices_with_labels(output_length(c), c.output.labels)
 neurons(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
-components(c::Component) = indices_with_labels(length(c.components), c.component_labels)
+components(c::Component) = indices_with_labels(length(c.components), c.components.labels)
 
 
 # adds a child component to parent, with a name
 function add_component!(parent::Component, child::Component, name::String)
-    push!(parent.components, child)
-    @assert !haskey(parent.component_labels, name)
-    parent.component_labels[name] = length(parent.components)
+    @assert !haslabel(parent.components, name)
+    push!(parent.components, child, name)
     build_weights_matrix!(parent)
     nothing
 end
@@ -88,14 +87,9 @@ function add_component!(parent::Component, child::Component)
     nothing
 end
 
-# method for tree navigation of components via component[string] syntax
-function Base.getindex(c::Component, key::String)::Component
-    return c.components[c.component_labels[key]]
-end
-
-# method for tree navigation of components via component[int] syntax
-function Base.getindex(c::Component, index::Int)::Component
-    return c.components[index]
+# method for tree navigation of components via component[string/int] syntax
+function Base.getindex(c::Component, key_or_index)::Component
+    return c.components[key_or_index]
 end
 
 function set_weight!(c::Component, source::Label, destination::Label, weight::AbstractFloat)
@@ -170,74 +164,10 @@ function destinations(c::Component)::Vector{Label}
     destinations
 end
 
-# next is the build functions. the build function will output an ODEProblem
-# sub build functions will be build_p, build u0, build fun
 
 
 # make unique shallow (only current component is made unique)
 # make unique deep (current component and all children component are made unique)
-
-# u0 is 
-function build_u0(c::Component)
-    θ_init = map_component_array_depth_first(c->c.neurons.θ_init, c)
-    dθ_init = map_component_array_depth_first(c->c.neurons.dθ_init, c)
-
-    return hcat(θ_init, dθ_init)
-end
-
-function build_p(c::Component)
-    # creates a vector of tuples with the component's weights, two temp arrays for storing the mm result and input, and the neurons
-    return map_component_depth_first(c->(c.weights, zeros(Float64, size(c.weights, 1)), zeros(Float64, size(c.weights, 2)) c.neurons), c)
-end
-
-function build_diff_eq(c::Component, inputs::Vector{Function})
-    return function afm_diff_eq_root!(du, u, p, t)
-        # wip
-        # curr_input = 
-    end
-end
-
-# comp_input is in voltage
-function afm_diff_eq!(du, u, p, t, comp_input)
-    # weights, result_temp, input_temp, neurons = p
-    # weights_curr = view(weights, 1)
-    # results_temp_curr = view(results_temp, 1)
-    # input_temp_curr = view(input_temp, 1)
-    # neurons_curr = view(neurons, 1)
-
-    # dθ = view(u, :, 2)
-    # dθ_curr = view(dθ, length(neurons_curr))
-
-    # # copy over comp_input.
-    # current_length = 1
-    # next_length = length(comp_input)
-    # comp_input_view = view(input_temp_curr, current_length:next_length)
-    # comp_input_view .= comp_input
-
-    # # copy over neuron outputs...
-    # current_length = next_length + 1
-    # next_length += length(dθ_curr)
-    # dθ_view = view(input_temp_curr, current_length:next_length)
-    # dθ_view .= dθ_curr # TODO: scale by whatever it is to get voltage from angular vel
-
-    # # copy over component outputs...
-    # current_length = next_length + 1
-    # next_length = size(weights_curr, 2)
-
-    # # if this view is non-zero, we need to compute children
-    # if next_length - current_length >= 0
-
-    # end
-end
-
-# returns output
-function compute_output(u, p, comp_input)
-    weights, result_temp, input_temp, neurons = p
-    weights_curr = view(weights, 1)
-    results_temp_curr = view(results_temp, 1)
-    input_temp_curr = view(input_temp, 1)
-    neurons_curr = view(neurons, 1)
-end
 
 
 # PRIVATE FUNCTIONS. TODO: move to other file and use here, just don't re export them
@@ -266,18 +196,18 @@ end
 
 # computes the total number of sources inside this component. represents the number of cols in weights matrix
 function internal_source_length(c::Component)::Int
-    curr_length = c.input_length
+    curr_length = input_length(c)
     curr_length += length(c.neurons)
-    for sc::Component in c.components
+    for sc::Component in c.components.vector
         curr_length += output_length(sc)
     end
     curr_length
 end
 # computes the total number of destinations inside this component. represents the number of rows in weights matrix
 function internal_destination_length(c::Component)::Int
-    curr_length = c.output_length
+    curr_length = output_length(c)
     curr_length += length(c.neurons)
-    for sc::Component in c.components
+    for sc::Component in c.components.vector
         curr_length += input_length(sc)
     end
     curr_length
@@ -288,8 +218,8 @@ end
 function build_weights_matrix!(c::Component)
     d = internal_destination_length(c)
     s = internal_source_length(c)
-    c.output_weights = LabeledMatrix(zeros(Float64, c.output_length, s - c.input_length))
-    c.non_output_weights = LabeledMatrix(zeros(Float64, d - c.output_length, s))
+    c.output_weights = LabeledMatrix{Float64, Label}(zeros(Float64, output_length(c), s - input_length(c)))
+    c.non_output_weights = LabeledMatrix{Float64, Label}(zeros(Float64, d - output_length(c), s))
 
 end
 
