@@ -15,6 +15,19 @@ Base.getindex(m::LabeledMatrix{T, L}, i1::Int, i2::L) where {T, L} = m.matrix[i1
 Base.getindex(m::LabeledMatrix{T, L}, i1::L, i2::Int) where {T, L} = m.matrix[m.row_labels[i1], i2]
 Base.getindex(m::LabeledMatrix{T, L}, i1::L, i2::L) where {T, L} = m.matrix[m.row_labels[i1], m.col_labels[i2]]
 
+function nonzero_pairs(m::LabeledMatrix{T, L}) where {T, L}
+    Label = Union{L, Int}
+    output = Vector{Tuple{Tuple{Label, Label}, T}}()
+    row_indices = row_indices_with_labels(m)
+    col_indices = col_indices_with_labels(m)
+    for (ind, val) in pairs(m.matrix)
+        if val != 0
+            push!(output, ((row_indices[ind[1]], col_indices[ind[2]]), val))
+        end
+    end
+    output
+end
+
 function Base.setindex!(m::LabeledMatrix{T, L}, x, i1::Int, i2::Int) where {T, L}
     m.matrix[i1, i2] = x
 end
@@ -69,4 +82,30 @@ function set_labels!(m::LabeledMatrix{T, L}, row_labels::AbstractVector{L}, col_
         set_col_label!(m, i...)
     end
     nothing
+end
+
+function row_indices_with_labels(m::LabeledMatrix{T, L}) where {T, L}
+    output = Vector{Union{Int, L}}()
+    for i in 1:size(m.matrix, 1)
+        label = get_row_label(m, i)
+        if isnothing(label)
+            push!(output, i)
+        else
+            push!(output, label)
+        end
+    end
+    output
+end
+
+function col_indices_with_labels(m::LabeledMatrix{T, L}) where {T, L}
+    output = Vector{Union{Int, L}}()
+    for i in 1:size(m.matrix, 2)
+        label = get_col_label(m, i)
+        if isnothing(label)
+            push!(output, i)
+        else
+            push!(output, label)
+        end
+    end
+    output
 end

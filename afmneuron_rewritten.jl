@@ -5,7 +5,11 @@ include("labeledmatrix.jl")
 include("labeledlength.jl")
 include("labeledvector.jl")
 
-const Label = Union{String, Int, Tuple{Int}, Tuple{String}, Tuple{Int, Int}, Tuple{Int, String}, Tuple{String, Int}, Tuple{String, String}}
+const ComponentLabel = Union{String, Int}
+const NeuronLabel = Union{Tuple{String}, Tuple{Int}}
+const SubComponentLabel = Tuple{ComponentLabel, ComponentLabel}
+const Label = Union{ComponentLabel, NeuronLabel, SubComponentLabel}
+
 
 
 mutable struct Component
