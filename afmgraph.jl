@@ -1,6 +1,9 @@
 include("afmneuron_rewritten.jl")
+include("labeledmatrix.jl")
 
 using AutoHashEquals
+using LinearAlgebra
+using SparseArrays
 
 const Path = Vector{Union{String, Int}}
 @auto_hash_equals struct Node
@@ -174,4 +177,38 @@ function substitute_internal_io!(weights::Vector{Weight}, nodes::Vector{Node})
         substitute_node!(weights, nodes, to_sub)
     end
     nothing
+end
+
+function graph_to_labeled_matrix(weights::Vector{Weight}, nodes::Vector{Node})
+    neuron_nodes = filter(x->x.type == :neuron, nodes)
+    root_input_nodes = filter(x->x.type == :root_input, nodes)
+    root_output_nodes = filter(x->x.type == :root_output, nodes)
+
+    neuron_to_neuron_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(neuron_nodes), length(neuron_nodes))))
+    root_input_to_neuron_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(neuron_nodes), length(root_input_nodes))))
+    neuron_to_root_output_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(root_output_nodes), length(neuron_nodes))))
+    root_input_to_root_output_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(root_output_nodes), length(root_input_nodes))))
+    set_labels!(neuron_to_neuron_matrix, neuron_nodes, neuron_nodes)
+    set_labels!(root_input_to_neuron_matrix, neuron_nodes, root_input_nodes)
+    set_labels!(neuron_to_root_output_matrix, root_output_nodes, neuron_nodes)
+    set_labels!(root_input_to_root_output_matrix, root_output_nodes, root_input_nodes)
+
+    n_to_n_weights = filter(x->(x.from.type == :neuron && x.to.type == :neuron), weights)
+    for w in n_to_n_weights
+        neuron_to_neuron_matrix[w.to, w.from] = w.weight
+    end
+    root_input_to_n_weights = filter(x->(x.from.type == :root_input && x.to.type == :neuron), weights)
+    for w in root_input_to_n_weights
+        root_input_to_neuron_matrix[w.to, w.from] = w.weight
+    end
+    n_to_root_output_weights = filter(x->(x.from.type == :neuron && x.to.type == :root_output), weights)
+    for w in n_to_root_output_weights
+        neuron_to_root_output_matrix[w.to, w.from] = w.weight
+    end
+    root_input_to_root_output_weights = filter(x->(x.from.type == :root_input && x.to.type == :root_output), weights)
+    for w in root_input_to_root_output_weights
+        root_input_to_root_output_matrix[w.to, w.from] = w.weight
+    end
+
+    neuron_to_neuron_matrix, root_input_to_neuron_matrix, neuron_to_root_output_matrix, root_input_to_root_output_matrix
 end
