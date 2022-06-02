@@ -75,6 +75,7 @@ components(c::Component) = indices_with_labels(length(c.components), c.component
 
 function add_neurons!(c::Component, n::Int)
     add_neurons!(c.neurons, n)
+    build_weights_matrix!(c)
 end
 
 function add_component!(parent::Component, child::Component, name::String)

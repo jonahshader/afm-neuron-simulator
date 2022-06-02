@@ -81,7 +81,7 @@ function make_weights(comp::Component, nodes::Vector{Node}, current_path::Path, 
     weights = Vector{Weight}()
     for p in nonzero_pairs(comp.weights)
         dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
-        src_node = get_node_from_label(nodes, p[1][2], false, current_path, is_root)
+        src_node = get_node_from_label(nodes, p[1][2], true, current_path, is_root)
         push!(weights, Weight(p[2], src_node, dest_node))
     end
     for clabel in components(comp)
@@ -94,9 +94,9 @@ end
 # ComponentLabel to Node
 function label_to_node(label::ComponentLabel, source::Bool, path::Path, is_root::Bool=false)
     if is_root
-        Node(path, label, source ? :root_output : :root_input)
+        Node(path, label, source ? :root_input : :root_output)
     else
-        Node(path, label, source ? :output : :input)
+        Node(path, label, source ? :input : :output)
     end
 end
 # NeuronLabel to Node
@@ -105,7 +105,7 @@ function label_to_node(label::NeuronLabel, source::Bool, path::Path, is_root::Bo
 end
 # SubComponentLabel to Node
 function label_to_node(label::SubComponentLabel, source::Bool, path::Path, is_root::Bool=false)
-    Node(vcat(path, label[1]), label[2], source ? :input : :output)
+    Node(vcat(path, label[1]), label[2], source ? :output : :input)
 end
 
 function get_node_from_label(nodes::Vector{Node}, label::Label, source::Bool, path::Path, is_root::Bool=false)
@@ -124,3 +124,54 @@ end
 
 # TODO: modify make functions here to generate weights in addition to nodes
 # TODO: add UUIDs to components
+
+
+function incoming_weights(weights::Vector{Weight}, node::Node)
+    incoming = Vector{Weight}()
+    for weight in weights
+        if weight.to == node
+            push!(incoming, weight)
+        end
+    end
+    incoming
+end
+
+function outgoing_weights(weights::Vector{Weight}, node::Node)
+    outgoing = Vector{Weight}()
+    for weight in weights
+        if weight.from == node
+            push!(outgoing, weight)
+        end
+    end
+    outgoing
+end
+
+function substitute_node!(weights::Vector{Weight}, nodes::Vector{Node}, to_sub::Node)
+    incoming = incoming_weights(weights, to_sub)
+    outgoing = outgoing_weights(weights, to_sub)
+
+    for i in incoming
+        for o in outgoing
+            @assert i.from != i.to
+            push!(weights, Weight(i.weight * o.weight, i.from, o.to))
+        end
+    end
+
+    for i in incoming
+        deleteat!(weights, findall(x->x == i, weights))
+    end
+    for o in outgoing
+        deleteat!(weights, findall(x->x == o, weights))
+    end
+
+    deleteat!(nodes, findall(x->x == to_sub, nodes))
+    nothing
+end
+
+function substitute_internal_io!(weights::Vector{Weight}, nodes::Vector{Node})
+    to_subs = filter(x->(x.type == :input || x.type == :output), nodes)
+    for to_sub in to_subs
+        substitute_node!(weights, nodes, to_sub)
+    end
+    nothing
+end
