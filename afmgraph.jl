@@ -1,5 +1,6 @@
 include("afmneuron_rewritten.jl")
 include("labeledmatrix.jl")
+include("utils.jl")
 
 using AutoHashEquals
 using LinearAlgebra
@@ -23,6 +24,8 @@ mutable struct Graph{T<:AbstractFloat}
     weights::Vector{Weight{T}}
 end
 
+
+
 function make_nodes_from_component_tree(root::Component)
     root_inputs = Vector{Node}()
     root_outputs = Vector{Node}()
@@ -35,12 +38,12 @@ function make_nodes_from_component_tree(root::Component)
         push!(root_outputs, Node(Path(), output, :root_output))
     end
 
-    nodes = make_qualified_nodes(root, Path())
+    nodes = make_all_qualified_nodes(root, Path())
 
     vcat(root_inputs, root_outputs, nodes)
 end
 
-function make_qualified_nodes(comp::Component, current_path::Path)
+function make_all_qualified_nodes(comp::Component, current_path::Path)
     nodes = Vector{Node}()
     # add inputs, outputs, and neurons as nodes, with current_path
     # call this function for every component, and append that component's name to current_path
@@ -61,7 +64,7 @@ function make_qualified_nodes(comp::Component, current_path::Path)
             push!(comp_output_nodes, Node(vcat(copy(current_path), clabel), output, :output))
         end
         nodes = vcat(nodes, comp_input_nodes, comp_output_nodes)
-        next_qualified_nodes = make_qualified_nodes(c, vcat(current_path, clabel))
+        next_qualified_nodes = make_all_qualified_nodes(c, vcat(current_path, clabel))
 
         nodes = vcat(nodes, next_qualified_nodes)
 
@@ -75,6 +78,22 @@ function make_qualified_nodes(comp::Component, current_path::Path)
 
     nodes
 end
+
+# function make_neuron_qualified_nodes(comp::Component, current_path::Path)
+#     nodes = Vector{Node}()
+
+#     for neuron in neurons(comp)
+#         push!(nodes, Node(copy(current_path), neuron, :neuron))
+#     end
+
+#     for clabel in components(comp)
+#         c = comp[clabel]
+#         next_qualified_nodes = make_neuron_qualified_nodes(c, vcat(current_path, clabel))
+#         nodes = vcat(nodes, next_qualified_nodes)
+#     end
+#     nodes
+# end
+
 
 function make_weights_from_component_tree(root::Component, nodes::Vector{Node})
     make_weights(root, nodes, Path(), true)
