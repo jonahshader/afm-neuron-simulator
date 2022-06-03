@@ -5,6 +5,10 @@ mutable struct LabeledVector{T, L}
     labels_reversed::Dict{Int, L}
 end
 
+function raw(v::LabeledVector)
+    v.vector
+end
+
 LabeledVector{T, L}(vector::AbstractVector{T}) where {T, L} = LabeledVector{T, L}(vector, Dict{L, Int}(), Dict{Int, L}())
 function LabeledVector{T, L}(vector::AbstractVector{T}, init_labels::AbstractVector{L}) where {T, L}
     v = LabeledVector(vector)

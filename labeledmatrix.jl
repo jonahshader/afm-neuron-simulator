@@ -6,6 +6,10 @@ mutable struct LabeledMatrix{T, L}
     col_labels_reversed::Dict{Int, L}
 end
 
+function raw(m::LabeledMatrix)
+    m.matrix
+end
+
 LabeledMatrix{T, L}(matrix::AbstractMatrix{T}) where {T, L} = LabeledMatrix{T, L}(matrix, Dict{L, Int}(), Dict{Int, L}(), Dict{L, Int}(), Dict{Int, L}())
 
 get_matrix(m::LabeledMatrix) = m.matrix

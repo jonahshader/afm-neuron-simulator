@@ -4,6 +4,10 @@ mutable struct LabeledLength{L}
     labels_reversed::Dict{Int, L}
 end
 
+function raw(v::LabeledLength)
+    v.length
+end
+
 function LabeledLength{L}(length::Int) where {L}
     LabeledLength{L}(length, Dict{L, Int}(), Dict{Int, L}())
 end
