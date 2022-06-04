@@ -15,8 +15,6 @@ add_component!(full_adder, and, "and2")
 or = Component(2, 1)
 add_component!(full_adder, or, "or1")
 
-add_neurons!(full_adder, 5)
-
 # set_weight!(full_adder, source=”A”, dest=(“xor1”, 1), weight=8.0)
 # set_weight!(full_adder, source=”A”, dest=(“and2”, 2), weight=8.0)
 # set_weight!(full_adder, source=”B”, dest=(“xor1”, 2), weight=8.0)
@@ -30,27 +28,30 @@ add_neurons!(full_adder, 5)
 # set_weight!(full_adder, source=(“and2”, 1), dest=(“or1”, 2), weight=8.0)
 # set_weight!(full_adder, source=(“or1”, 1), dest=”C-out”, weight=8.0)
 
-set_weight!(full_adder, "a", ("xor1", 1), 0.8)
-set_weight!(full_adder, "a", ("and2", 2), 0.8)
-set_weight!(full_adder, "b", ("xor1", 2), 0.8)
-set_weight!(full_adder, "b", ("and2", 2), 0.8)
-set_weight!(full_adder, "c-in", ("xor2", 2), 0.8)
-set_weight!(full_adder, "c-in", ("and1", 1), 0.8)
-set_weight!(full_adder, ("xor1", 1), ("xor2", 1), 0.8)
-set_weight!(full_adder, ("xor1", 1), ("and1", 2), 0.8)
-set_weight!(full_adder, ("xor2", 1), "sum", 0.8)
-set_weight!(full_adder, ("and1", 1), ("or1", 1), 0.8)
-set_weight!(full_adder, ("and2", 1), ("or1", 2), 0.8)
-set_weight!(full_adder, ("or1", 1), "c-out", 0.8)
+scale = 0.4
+set_weight!(full_adder, "a", ("xor1", 1), scale)
+set_weight!(full_adder, "a", ("and2", 2), scale)
+set_weight!(full_adder, "b", ("xor1", 2), scale)
+set_weight!(full_adder, "b", ("and2", 2), scale)
+set_weight!(full_adder, "c-in", ("xor2", 2), scale)
+set_weight!(full_adder, "c-in", ("and1", 1), scale)
+set_weight!(full_adder, ("xor1", 1), ("xor2", 1), scale)
+set_weight!(full_adder, ("xor1", 1), ("and1", 2), scale)
+set_weight!(full_adder, ("xor2", 1), "sum", scale)
+set_weight!(full_adder, ("and1", 1), ("or1", 1), scale)
+set_weight!(full_adder, ("and2", 1), ("or1", 2), scale)
+set_weight!(full_adder, ("or1", 1), "c-out", scale)
 
 add_neurons!(and, 1)
 println(and.weights)
-set_weight!(and, 1, (1,), 0.4)
-set_weight!(and, 2, (1,), 0.4)
-set_weight!(and, (1,), 1, 0.8)
+set_weight!(and, 1, (1,), scale * .5)
+set_weight!(and, 2, (1,), scale * .5)
+set_weight!(and, (1,), 1, scale)
 
-set_weight!(or, 1, 1, 1.0)
-set_weight!(or, 2, 1, 1.0)
+add_neurons!(or, 1)
+set_weight!(or, 1, (1,), scale)
+set_weight!(or, 2, (1,), scale)
+set_weight!(or, (1,), 1, scale * .5)
 
 add_component!(xor, and, "and1")
 add_component!(xor, or, "or1")
@@ -63,29 +64,38 @@ set_weight!(xor, ("and1", 1), 1, -1.0)
 set_weight!(xor, ("or1", 1), 1, 1.0)
 
 
-nodes = make_nodes_from_component_tree(full_adder)
-weights = make_weights_from_component_tree(full_adder, nodes)
+# nodes = make_nodes_from_component_tree(full_adder)
+# weights = make_weights_from_component_tree(full_adder, nodes)
 
-substitute_internal_io!(weights, nodes)
+# substitute_internal_io!(weights, nodes)
 
-mats = graph_to_labeled_matrix(weights, nodes)
+# mats = graph_to_labeled_matrix(weights, nodes)
 
-# println(full_adder)
+# # println(full_adder)
 
 input_functions = Vector{Function}()
-push!(input_functions, make_gaussian(1e13 * _beta, 0.5e-12, 0.5e-12))
-push!(input_functions, make_gaussian(1e13 * _beta, 0.5e-12, 0.5e-12))
-push!(input_functions, make_gaussian(1e13 * _beta, 0.5e-12, 0.5e-12))
-# for i in 1:3
-#     push!(input_functions, x->x)
-# end
+push!(input_functions, make_gaussian(1e13 * _beta * .25, 0.5e-12, (3e-13)^2))
+push!(input_functions, make_gaussian(1e13 * _beta, 0.5e-12, (3e-13)^2))
+push!(input_functions, make_gaussian(1e13 * _beta * .25, 0.5e-12, (3e-13)^2))
+# # for i in 1:3
+# #     push!(input_functions, x->x)
+# # end
 
-u0 = build_u0(full_adder)
-p = build_p(full_adder, mats..., input_functions)
+# u0 = build_u0(full_adder)
+# p = build_p(full_adder, mats..., input_functions)
 
 tspan = (0.0, 8e-12)
-prob = ODEProblem(afm_diffeq!, u0, tspan, p)
+# prob = ODEProblem(afm_diffeq!, u0, tspan, p)
 
+# @time sol = solve(prob)
+
+(prob, graph) = build_ode_problem(full_adder, tspan, input_functions)
 @time sol = solve(prob)
 
-plot(sol)
+# plot(sol, label = build_plot_labels(graph.nodes))
+plot_dΘ(sol, graph)
+plot_Θ(sol, graph)
+
+x_vals = vcat(0:999) * 0.001 * tspan[2]
+plot(x_vals, input_functions[1])
+

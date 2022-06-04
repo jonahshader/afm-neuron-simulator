@@ -24,8 +24,6 @@ mutable struct Graph{T<:AbstractFloat}
     weights::Vector{Weight{T}}
 end
 
-
-
 function make_nodes_from_component_tree(root::Component)
     root_inputs = Vector{Node}()
     root_outputs = Vector{Node}()
@@ -41,6 +39,14 @@ function make_nodes_from_component_tree(root::Component)
     nodes = make_all_qualified_nodes(root, Path())
 
     vcat(root_inputs, root_outputs, nodes)
+end
+
+function node_str(node::Node)
+    str = ""
+    for p in node.path
+        str *= "[" * string(p) * "]"
+    end
+    str *= string(node.name)
 end
 
 function make_all_qualified_nodes(comp::Component, current_path::Path)

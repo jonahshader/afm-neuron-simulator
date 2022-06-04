@@ -67,3 +67,40 @@ function afm_diffeq!(du, u, p, t)
 
     @. dudΦ = (sigma * n_arr_accum - a*dΦ - (we/2) * sin(2*Φ)) * wex
 end
+
+function build_plot_labels(nodes::Vector{Node})
+    neuron_nodes = filter(x->x.type == :neuron, nodes)
+    # labels = Matrix{String}(1, length(neuron_nodes) * 2)
+
+    # for n in neuron_nodes
+    #     labels = hcat(labels, "Θ" * node_str(n))
+    # end
+    # for n in neuron_nodes
+    #     labels = hcat(labels, "dΘ" * node_str(n))
+    # end
+    hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
+end
+
+function plot_Θ(sol, graph::Graph)
+    label = build_plot_labels(graph.nodes)
+    first = 1
+    last = length(label)÷2
+    plot(sol, vars=hcat(first:last), label=label[:, first:last])
+end
+
+function plot_dΘ(sol, graph::Graph)
+    label = build_plot_labels(graph.nodes)
+    first = (length(label)÷2) + 1
+    last = length(label)
+    plot(sol, vars=hcat(first:last), label=label[:, first:last])
+end
+
+function build_ode_problem(root::Component, tspan, input_functions::Vector{Function})
+    nodes = make_nodes_from_component_tree(root)
+    weights = make_weights_from_component_tree(root, nodes)
+    substitute_internal_io!(weights, nodes)
+    mats = graph_to_labeled_matrix(weights, nodes)
+    u0 = build_u0(full_adder)
+    p = build_p(full_adder, mats..., input_functions)
+    ODEProblem(afm_diffeq!, u0, tspan, p), Graph{Float64}(nodes, weights)
+end
