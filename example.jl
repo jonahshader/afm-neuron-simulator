@@ -73,10 +73,7 @@ set_weight!(xor, ("or1", 1), 1, 1.0)
 
 # # println(full_adder)
 
-input_functions = Vector{Function}()
-push!(input_functions, make_gaussian(1e13 * _beta * .25, 0.5e-12, (3e-13)^2))
-push!(input_functions, make_gaussian(1e13 * _beta, 0.5e-12, (3e-13)^2))
-push!(input_functions, make_gaussian(1e13 * _beta * .25, 0.5e-12, (3e-13)^2))
+input_functions = input_to_spikes([1.0, 0.0, 0.0])
 # # for i in 1:3
 # #     push!(input_functions, x->x)
 # # end
@@ -89,13 +86,13 @@ tspan = (0.0, 8e-12)
 
 # @time sol = solve(prob)
 
-(prob, graph) = build_ode_problem(full_adder, tspan, input_functions)
-@time sol = solve(prob)
+parts = build_model_parts(full_adder, tspan, input_functions)
+@time sol = solve(parts.ode_problem)
 
 # plot(sol, label = build_plot_labels(graph.nodes))
-plot_dΘ(sol, graph)
-plot_Θ(sol, graph)
+plot_dΘ(sol, parts.graph)
+plot_Θ(sol, parts.graph)
 
 x_vals = vcat(0:999) * 0.001 * tspan[2]
-plot(x_vals, input_functions[1])
+# plot(x_vals, input_functions[1])
 

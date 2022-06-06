@@ -5,6 +5,19 @@ include("utils.jl")
 using LinearAlgebra
 using SparseArrays
 
+struct AFMModelParts{T<:AbstractFloat}
+    graph::Graph{T}
+    nnm::AbstractMatrix{T}
+    inm::AbstractMatrix{T}
+    nom::AbstractMatrix{T}
+    iom::AbstractMatrix{T}
+    u0::AbstractMatrix{T}
+    tspan::Tuple{T, T}
+    input_functions::Vector{Function}
+    ode_problem::ODEProblem
+
+end
+
 function build_u0(root::Component)
     θ_init = map_component_array_depth_first(x->x.neurons.θ_init, root)
     dθ_init = map_component_array_depth_first(x->x.neurons.dθ_init, root)
@@ -35,8 +48,17 @@ end
 
 function make_gaussian(a, b, c)
     function gaussian(t)
-        a * ℯ^(-((t - b)^2)/c)
+        a * ℯ^(-((t - b)^2)/(c^2))
     end
+end
+
+# takes a vector of inputs from 0 to 1 and converts them to spikes with magnitues proportional to the input
+function input_to_spikes(inputs::Vector{Float64})::Vector{Function}
+    input_funs = Vector{Function}()
+    for i in inputs
+        push!(input_funs, make_gaussian(0.0026 * i, 0.7e-12, 3e-13))
+    end
+    input_funs
 end
 
 function afm_diffeq!(du, u, p, t)
@@ -59,9 +81,9 @@ function afm_diffeq!(du, u, p, t)
     mul!(n_arr_temp2, nnm, n_voltage_temp)
     n_arr_accum .+= n_arr_temp2 # accumulate current
 
-    mul!(model_arr_accum, iom, model_input_temp)
-    mul!(model_output_temp, nom, n_voltage_temp)
-    model_arr_accum .+= model_output_temp # accumulate current
+    # mul!(model_arr_accum, iom, model_input_temp)
+    # mul!(model_output_temp, nom, n_voltage_temp)
+    # model_arr_accum .+= model_output_temp # accumulate current
 
     n_arr_accum .+= bias # add bias current
 
@@ -95,12 +117,13 @@ function plot_dΘ(sol, graph::Graph)
     plot(sol, vars=hcat(first:last), label=label[:, first:last])
 end
 
-function build_ode_problem(root::Component, tspan, input_functions::Vector{Function})
+function build_model_parts(root::Component, tspan, input_functions::Vector{Function})
     nodes = make_nodes_from_component_tree(root)
     weights = make_weights_from_component_tree(root, nodes)
     substitute_internal_io!(weights, nodes)
     mats = graph_to_labeled_matrix(weights, nodes)
     u0 = build_u0(full_adder)
     p = build_p(full_adder, mats..., input_functions)
-    ODEProblem(afm_diffeq!, u0, tspan, p), Graph{Float64}(nodes, weights)
+    prob = ODEProblem(afm_diffeq!, u0, tspan, p)
+    AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob)
 end
