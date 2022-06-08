@@ -5,6 +5,7 @@ include("afmdiffeq.jl")
 using DifferentialEquations
 using Plots
 
+# full_adder = Component(["a", "b", "c-in"], ["sum", "c-out"])
 full_adder = Component(["a", "b", "c-in"], ["sum", "c-out"])
 xor = Component(2, 1)
 add_component!(full_adder, xor, "xor1")
@@ -43,7 +44,6 @@ set_weight!(full_adder, ("and2", 1), ("or1", 2), scale)
 set_weight!(full_adder, ("or1", 1), "c-out", scale)
 
 add_neurons!(and, 1)
-println(and.weights)
 set_weight!(and, 1, (1,), scale * .5)
 set_weight!(and, 2, (1,), scale * .5)
 set_weight!(and, (1,), 1, scale)
@@ -87,12 +87,14 @@ tspan = (0.0, 8e-12)
 # @time sol = solve(prob)
 
 parts = build_model_parts(full_adder, tspan, input_functions)
-@time sol = solve(parts.ode_problem)
+solve!(parts)
+# @time sol = solve(parts.ode_problem)
 
 # plot(sol, label = build_plot_labels(graph.nodes))
-plot_dΘ(sol, parts.graph)
-plot_Θ(sol, parts.graph)
+plot_dΘ(parts)
+plot_Θ(parts)
 
-x_vals = vcat(0:999) * 0.001 * tspan[2]
+# x_vals = vcat(0:999) * 0.001 * tspan[2]
+# can get this from parts.sol.t
 # plot(x_vals, input_functions[1])
 

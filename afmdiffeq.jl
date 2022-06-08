@@ -4,8 +4,9 @@ include("utils.jl")
 
 using LinearAlgebra
 using SparseArrays
+using DifferentialEquations
 
-struct AFMModelParts{T<:AbstractFloat}
+mutable struct AFMModelParts{T<:AbstractFloat}
     graph::Graph{T}
     nnm::AbstractMatrix{T}
     inm::AbstractMatrix{T}
@@ -15,7 +16,11 @@ struct AFMModelParts{T<:AbstractFloat}
     tspan::Tuple{T, T}
     input_functions::Vector{Function}
     ode_problem::ODEProblem
+    sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
+end
 
+function solve!(parts::AFMModelParts)
+    parts.sol = solve(parts.ode_problem)
 end
 
 function build_u0(root::Component)
@@ -61,6 +66,23 @@ function input_to_spikes(inputs::Vector{Float64})::Vector{Function}
     input_funs
 end
 
+function peak_output(parts::AFMModelParts, sol)
+    output = zeros(Float64, size(parts.iom)[1])
+    curr_output = zeros(Float64, size(parts.iom)[1])
+    curr_output_accum = zeros(Float64, size(parts.iom)[1])
+    curr_input = zeros(Float64, size(parts.iom)[2])
+    for i in 1:size(sol)[3]
+        dΘ = view(sol, [:, 2, i])
+        mul!(curr_output, parts.iom, dΘ)
+    end
+
+    # mul!(model_arr_accum, iom, model_input_temp)
+    # mul!(model_output_temp, nom, n_voltage_temp)
+    # model_arr_accum .+= model_output_temp # accumulate current
+
+
+end
+
 function afm_diffeq!(du, u, p, t)
     sigma, a, we, wex, beta, bias, nnm, inm, nom, iom, model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, model_output_temp, model_arr_accum, input_functions = p
     Φ = view(u, :, 1)
@@ -103,27 +125,27 @@ function build_plot_labels(nodes::Vector{Node})
     hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
 end
 
-function plot_Θ(sol, graph::Graph)
-    label = build_plot_labels(graph.nodes)
+function plot_Θ(parts::AFMModelParts, args...)
+    label = build_plot_labels(parts.graph.nodes)
     first = 1
     last = length(label)÷2
-    plot(sol, vars=hcat(first:last), label=label[:, first:last])
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
-function plot_dΘ(sol, graph::Graph)
-    label = build_plot_labels(graph.nodes)
+function plot_dΘ(parts::AFMModelParts, args...)
+    label = build_plot_labels(parts.graph.nodes)
     first = (length(label)÷2) + 1
     last = length(label)
-    plot(sol, vars=hcat(first:last), label=label[:, first:last])
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
-function build_model_parts(root::Component, tspan, input_functions::Vector{Function})
+function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
     nodes = make_nodes_from_component_tree(root)
     weights = make_weights_from_component_tree(root, nodes)
     substitute_internal_io!(weights, nodes)
     mats = graph_to_labeled_matrix(weights, nodes)
-    u0 = build_u0(full_adder)
-    p = build_p(full_adder, mats..., input_functions)
+    u0 = build_u0(root)
+    p = build_p(root, mats..., input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
-    AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob)
+    AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
