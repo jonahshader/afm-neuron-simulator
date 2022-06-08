@@ -83,6 +83,20 @@ function peak_output(parts::AFMModelParts, sol)
 
 end
 
+function input(parts::AFMModelParts)
+    # https://discourse.julialang.org/t/mapping-vector-of-functions-to-vector-of-numbers/20942
+    (|>).(transpose(parts.sol.t), parts.input_functions)
+end
+
+function output(parts::AFMModelParts)
+    # Θ_part = view(parts.sol, :, 1, :)
+    dΘ_part = view(parts.sol, :, 2, :)
+    # Θ_output = parts.nom * Θ_part
+    dΘ_output = (parts.nom * dΘ_part) + (parts.iom * input(parts))
+
+    # TODO: compute Θ of input functions? integrate?
+end
+
 function afm_diffeq!(du, u, p, t)
     sigma, a, we, wex, beta, bias, nnm, inm, nom, iom, model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, model_output_temp, model_arr_accum, input_functions = p
     Φ = view(u, :, 1)
