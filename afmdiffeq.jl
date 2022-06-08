@@ -85,7 +85,8 @@ end
 
 function input(parts::AFMModelParts)
     # https://discourse.julialang.org/t/mapping-vector-of-functions-to-vector-of-numbers/20942
-    (|>).(transpose(parts.sol.t), parts.input_functions)
+    transpose(parts.sol.t) .|> parts.input_functions
+    # (|>).(transpose(parts.sol.t), parts.input_functions)
 end
 
 function output(parts::AFMModelParts)
@@ -96,6 +97,17 @@ function output(parts::AFMModelParts)
 
     # TODO: compute Θ of input functions? integrate?
 end
+
+function output_max(parts::AFMModelParts)
+    dΘ_output = output(parts)
+    findmax(dΘ_output, dims = 2)[1]
+end
+
+function output_binary(parts::AFMModelParts, threshold=2e12)
+    output_max(parts) .> threshold
+end
+
+
 
 function afm_diffeq!(du, u, p, t)
     sigma, a, we, wex, beta, bias, nnm, inm, nom, iom, model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, model_output_temp, model_arr_accum, input_functions = p
