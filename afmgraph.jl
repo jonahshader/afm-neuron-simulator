@@ -204,7 +204,7 @@ function substitute_internal_io!(weights::Vector{Weight}, nodes::Vector{Node})
     nothing
 end
 
-function graph_to_labeled_matrix(weights::Vector{Weight}, nodes::Vector{Node})
+function graph_to_labeled_matrix(weights, nodes)
     neuron_nodes = filter(x->x.type == :neuron, nodes)
     root_input_nodes = filter(x->x.type == :root_input, nodes)
     root_output_nodes = filter(x->x.type == :root_output, nodes)
@@ -220,19 +220,19 @@ function graph_to_labeled_matrix(weights::Vector{Weight}, nodes::Vector{Node})
 
     n_to_n_weights = filter(x->(x.from.type == :neuron && x.to.type == :neuron), weights)
     for w in n_to_n_weights
-        neuron_to_neuron_matrix[w.to, w.from] = w.weight
+        neuron_to_neuron_matrix[w.to, w.from] += w.weight
     end
     root_input_to_n_weights = filter(x->(x.from.type == :root_input && x.to.type == :neuron), weights)
     for w in root_input_to_n_weights
-        root_input_to_neuron_matrix[w.to, w.from] = w.weight
+        root_input_to_neuron_matrix[w.to, w.from] += w.weight
     end
     n_to_root_output_weights = filter(x->(x.from.type == :neuron && x.to.type == :root_output), weights)
     for w in n_to_root_output_weights
-        neuron_to_root_output_matrix[w.to, w.from] = w.weight
+        neuron_to_root_output_matrix[w.to, w.from] += w.weight
     end
     root_input_to_root_output_weights = filter(x->(x.from.type == :root_input && x.to.type == :root_output), weights)
     for w in root_input_to_root_output_weights
-        root_input_to_root_output_matrix[w.to, w.from] = w.weight
+        root_input_to_root_output_matrix[w.to, w.from] += w.weight
     end
 
     neuron_to_neuron_matrix, root_input_to_neuron_matrix, neuron_to_root_output_matrix, root_input_to_root_output_matrix

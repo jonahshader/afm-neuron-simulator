@@ -5,6 +5,7 @@ include("utils.jl")
 using LinearAlgebra
 using SparseArrays
 using DifferentialEquations
+using RecursiveArrayTools
 
 mutable struct AFMModelParts{T<:AbstractFloat}
     graph::Graph{T}
@@ -45,10 +46,8 @@ function build_p(root::Component, nnm, inm, nom, iom, input_functions::Vector{Fu
     n_voltage_temp = similar(neuron_p[1])
     n_arr_temp2 = similar(neuron_p[1])
     n_arr_accum = similar(neuron_p[1])
-    model_output_temp = similar(neuron_p[1], length(root.output))
-    model_arr_accum = similar(neuron_p[1], length(root.output))
 
-    (neuron_p..., raw(nnm), raw(inm), raw(nom), raw(iom), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, model_output_temp, model_arr_accum, input_functions)
+    (neuron_p..., raw(nnm), raw(inm), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
 end
 
 function make_gaussian(a, b, c)
@@ -107,10 +106,8 @@ function output_binary(parts::AFMModelParts, threshold=2e12)
     output_max(parts) .> threshold
 end
 
-
-
 function afm_diffeq!(du, u, p, t)
-    sigma, a, we, wex, beta, bias, nnm, inm, nom, iom, model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, model_output_temp, model_arr_accum, input_functions = p
+    sigma, a, we, wex, beta, bias, nnm, inm, model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions = p
     Φ = view(u, :, 1)
     dΦ = view(u, :, 2)
     duΦ = view(du, :, 1)
@@ -128,10 +125,6 @@ function afm_diffeq!(du, u, p, t)
     mul!(n_arr_accum, inm, model_input_temp)
     mul!(n_arr_temp2, nnm, n_voltage_temp)
     n_arr_accum .+= n_arr_temp2 # accumulate current
-
-    # mul!(model_arr_accum, iom, model_input_temp)
-    # mul!(model_output_temp, nom, n_voltage_temp)
-    # model_arr_accum .+= model_output_temp # accumulate current
 
     n_arr_accum .+= bias # add bias current
 
@@ -174,4 +167,15 @@ function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions:
     p = build_p(root, mats..., input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
+end
+
+function parameters_view(root::Component)
+    views = Vector{SubArray{Float64, 2}}()
+
+    unique_components = unique(map_component_array_depth_first(x->x, root))
+    for c in unique_components
+        push!(views, view(raw(c.weights), :, :))
+    end
+
+    VectorOfArray(views)
 end
