@@ -1,5 +1,5 @@
 
-include("Neurons.jl")
+include("afmneurons.jl")
 include("utils.jl")
 include("labeledmatrix.jl")
 include("labeledlength.jl")
@@ -9,7 +9,6 @@ const ComponentLabel = Union{String, Int}
 const NeuronLabel = Union{Tuple{String}, Tuple{Int}}
 const SubComponentLabel = Tuple{ComponentLabel, ComponentLabel}
 const Label = Union{ComponentLabel, NeuronLabel, SubComponentLabel}
-
 
 
 mutable struct Component
@@ -22,6 +21,7 @@ mutable struct Component
     neuron_labels::Dict{String, Int}
 
     weights::LabeledMatrix{Float64, Label}
+    weights_trainable_mask::LabeledMatrix{Bool, Label}
 end
 
 function Component(input_length::Int, output_length::Int)
@@ -31,7 +31,8 @@ function Component(input_length::Int, output_length::Int)
         LabeledVector{Component, String}(Vector{Component}()),
         Neurons(),
         Dict{String, Int}(),
-        LabeledMatrix{Float64, Label}(zeros(Float64, 1, 1))
+        LabeledMatrix{Float64, Label}(zeros(Float64, 1, 1)),
+        LabeledMatrix{Bool, Label}(zeros(Bool, 1, 1))
     )
     build_weights_matrix!(comp)
     comp
@@ -164,7 +165,13 @@ function destinations(c::Component)::Vector{Label}
 end
 
 function build_weights_matrix!(c::Component)
-    c.weights = LabeledMatrix{Float64, Label}(zeros(Float64, internal_destination_length(c), internal_source_length(c)))
-    set_labels!(c.weights, destinations(c), sources(c))
+    int_dest_len = internal_destination_length(c)
+    int_src_len = internal_source_length(c)
+    c.weights = LabeledMatrix{Float64, Label}(zeros(Float64, int_dest_len, int_src_len))
+    c.weights_trainable_mask = LabeledMatrix{Bool, Label}(zeros(Bool, int_dest_len, int_src_len))
+    dest = destinations(c)
+    src = sources(c)
+    set_labels!(c.weights, dest, src)
+    set_labels!(c.weights_trainable_mask, dest, src)
     nothing
 end

@@ -1,4 +1,4 @@
-include("afmneuron_rewritten.jl")
+include("afmcomponent.jl")
 include("afmgraph.jl")
 include("afmdiffeq.jl")
 

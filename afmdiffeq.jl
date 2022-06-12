@@ -1,5 +1,5 @@
 include("afmgraph.jl")
-include("afmneuron_rewritten.jl")
+include("afmcomponent.jl")
 include("utils.jl")
 
 using LinearAlgebra
@@ -167,6 +167,17 @@ function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions:
     p = build_p(root, mats..., input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
+end
+
+function rebuild_model_parts!(root::Component, parts::AFMModelParts; tspan=nothing, input_functions=nothing)
+    if !isnothing(tspan)
+        parts.prob.tspan = tspan
+    end
+    if !isnothing(input_functions)
+        parts.input_functions = input_functions
+    end
+    p = build_p(root, parts.nnm, parts.inm, parts.nom, parts.iom, input_functions)
+    parts.prob = ODEProblem(afm_diffeq!, parts.u0, parts.tspan, p)
 end
 
 function parameters_view(root::Component)
