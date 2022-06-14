@@ -68,3 +68,13 @@ function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Union{Float64, Nothin
     neurons.beta = vcat(neurons.beta, fill(beta, n))
     neurons.bias = vcat(neurons.bias, fill(bias, n))
 end
+
+function build_neuron_params(root)
+    sigma = map_component_array_depth_first(x->x.neurons.sigma, root)
+    a = map_component_array_depth_first(x->x.neurons.a, root)
+    we = map_component_array_depth_first(x->x.neurons.we, root)
+    wex = map_component_array_depth_first(x->x.neurons.wex, root)
+    beta = map_component_array_depth_first(x->x.neurons.beta, root)
+    bias = map_component_array_depth_first(x->x.neurons.bias, root)
+    (sigma, a, we, wex, beta, bias)
+end

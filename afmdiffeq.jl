@@ -8,20 +8,65 @@ using DifferentialEquations
 using RecursiveArrayTools
 
 mutable struct AFMModelParts{T<:AbstractFloat}
-    graph::Graph{T}
-    nnm::AbstractMatrix{T}
-    inm::AbstractMatrix{T}
-    nom::AbstractMatrix{T}
-    iom::AbstractMatrix{T}
-    u0::AbstractMatrix{T}
+    # graph::Graph{T}
+    # nnm::AbstractMatrix{T}
+    # inm::AbstractMatrix{T}
+    # nom::AbstractMatrix{T}
+    # iom::AbstractMatrix{T}
+    # u0::AbstractMatrix{T}
+    # tspan::Tuple{T, T}
+    # input_functions::Vector{Function}
+    # ode_problem::ODEProblem
+    # sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
+    root::Component
+    reduced_graph::Graph{T}
     tspan::Tuple{T, T}
+    u0::AbstractMatrix{T}
+    p::AbstractVectorOfArray
     input_functions::Vector{Function}
     ode_problem::ODEProblem
     sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
 end
 
+# adding an internal interface to reduce refactoring required
+root(parts::AFMModelParts) = parts.root
+reduced_graph(parts::AFMModelParts) = parts.reduced_graph
+tspan(parts::AFMModelParts) = parts.tspan
+u0(parts::AFMModelParts) = parts.u0
+p(parts::AFMModelParts) = parts.p
+input_functions(parts::AFMModelParts) = parts.input_functions
+ode_problem(parts::AFMModelParts) = parts.ode_problem
+sol(parts::AFMModelParts) = parts.sol
+
+function set_root!(parts::AFMModelParts, root::Component)
+    parts.root = root
+end
+function set_reduced_graph!(parts::AFMModelParts, reduced_graph::Graph)
+    parts.reduced_graph = reduced_graph
+end
+function set_tspan!(parts::AFMModelParts, tspan::Tuple)
+    parts.tspan = tspan
+end
+function set_u0!(parts::AFMModelParts, u0::AbstractMatrix)
+    parts.u0 = u0
+end
+function set_p!(parts::AFMModelParts, p::AbstractVectorOfArray)
+    parts.p = p
+end
+function set_input_functions!(parts::AFMModelParts, input_functions::Vector{Function})
+    parts.input_functions = input_functions
+end
+function set_ode_problem!(parts::AFMModelParts, ode_problem::ODEProblem)
+    parts.ode_problem = ode_problem
+end
+function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing})
+    parts.sol = sol
+end
+
+
+
 function solve!(parts::AFMModelParts)
-    parts.sol = solve(parts.ode_problem)
+    set_sol!(parts, solve(ode_problem(parts)))
 end
 
 function build_u0(root::Component)
@@ -30,15 +75,7 @@ function build_u0(root::Component)
     hcat(θ_init, dθ_init)
 end
 
-function build_neuron_params(root::Component)
-    sigma = map_component_array_depth_first(x->x.neurons.sigma, root)
-    a = map_component_array_depth_first(x->x.neurons.a, root)
-    we = map_component_array_depth_first(x->x.neurons.we, root)
-    wex = map_component_array_depth_first(x->x.neurons.wex, root)
-    beta = map_component_array_depth_first(x->x.neurons.beta, root)
-    bias = map_component_array_depth_first(x->x.neurons.bias, root)
-    (sigma, a, we, wex, beta, bias)
-end
+build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
 function build_p(root::Component, nnm, inm, nom, iom, input_functions::Vector{Function})
     neuron_p = build_neuron_params(root)
@@ -133,29 +170,21 @@ end
 
 function build_plot_labels(nodes::Vector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
-    # labels = Matrix{String}(1, length(neuron_nodes) * 2)
-
-    # for n in neuron_nodes
-    #     labels = hcat(labels, "Θ" * node_str(n))
-    # end
-    # for n in neuron_nodes
-    #     labels = hcat(labels, "dΘ" * node_str(n))
-    # end
     hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
 end
 
-function plot_Θ(parts::AFMModelParts, args...)
+function plot_Θ(parts::AFMModelParts; args...)
     label = build_plot_labels(parts.graph.nodes)
     first = 1
     last = length(label)÷2
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
 end
 
-function plot_dΘ(parts::AFMModelParts, args...)
+function plot_dΘ(parts::AFMModelParts; args...)
     label = build_plot_labels(parts.graph.nodes)
     first = (length(label)÷2) + 1
     last = length(label)
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
 end
 
 function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
