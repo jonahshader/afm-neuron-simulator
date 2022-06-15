@@ -1,0 +1,163 @@
+include("afmgraph.jl")
+
+# Top level function to create all nodes from a component tree
+function make_nodes(comp::Component)
+    root_inputs = Vector{Node}()
+    root_outputs = Vector{Node}()
+
+    for input in inputs(comp)
+        push!(root_inputs, Node(Path(), input, :root_input))
+    end
+
+    for output in outputs(comp)
+        push!(root_outputs, Node(Path(), output, :root_output))
+    end
+
+    nodes = make_all_qualified_nodes_sublevel(comp, Path())
+
+    vcat(root_inputs, root_outputs, nodes)
+end
+
+# Top level function for creating weights from a component tree and nodes
+function make_weights_from_component_tree(root::Component, nodes::Vector{Node})
+    make_weights_sublevel(root, nodes, Path(), true)
+end
+
+# Returns all weights of which the destination is the specified node.
+function incoming_weights(weights::Vector{Weight}, node::Node)
+    incoming = Vector{Weight}()
+    for weight in weights
+        if to(weight) == node
+            push!(incoming, weight)
+        end
+    end
+    incoming
+end
+
+# Returns all weights of which the source is the specified node.
+function outgoing_weights(weights::Vector{Weight}, node::Node)
+    outgoing = Vector{Weight}()
+    for weight in weights
+        if from(weight) == node
+            push!(outgoing, weight)
+        end
+    end
+    outgoing
+end
+
+# Top level function for substituting all internal io nodes in the graph
+function substitute_internal_io!(graph::Graph)
+    to_subs = filter(x->(type(x) == :input || type(x) == :output), nodes(graph))
+    for to_sub in to_subs
+        substitute_node!(graph, to_sub)
+    end
+    nothing
+end
+
+# Populates a labeled weight matrix with the weights of the reduced graph
+function reduced_graph_to_labeled_matrix(graph::Graph)
+    
+    neuron_nodes = filter(x->type(x) == :neuron, nodes(graph))
+    root_input_nodes = filter(x->type(x) == :root_input, nodes(graph))
+    root_output_nodes = filter(x->type(x) == :root_output, nodes(graph))
+
+    neuron_to_neuron_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(neuron_nodes), length(neuron_nodes))))
+    root_input_to_neuron_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(neuron_nodes), length(root_input_nodes))))
+    neuron_to_root_output_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(root_output_nodes), length(neuron_nodes))))
+    root_input_to_root_output_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(root_output_nodes), length(root_input_nodes))))
+    set_labels!(neuron_to_neuron_matrix, neuron_nodes, neuron_nodes)
+    set_labels!(root_input_to_neuron_matrix, neuron_nodes, root_input_nodes)
+    set_labels!(neuron_to_root_output_matrix, root_output_nodes, neuron_nodes)
+    set_labels!(root_input_to_root_output_matrix, root_output_nodes, root_input_nodes)
+
+    n_to_n_weights = filter(x->(type(from(x)) == :neuron && type(to(x)) == :neuron), weights(graph))
+    for w in n_to_n_weights
+        neuron_to_neuron_matrix[to(w), from(w)] += weight(w)
+    end
+    root_input_to_n_weights = filter(x->(type(from(x)) == :root_input && type(to(x)) == :neuron), weights(graph))
+    for w in root_input_to_n_weights
+        root_input_to_neuron_matrix[to(w), from(w)] += weight(w)
+    end
+    n_to_root_output_weights = filter(x->(type(from(x)) == :neuron && type(to(x)) == :root_output), weights(graph))
+    for w in n_to_root_output_weights
+        neuron_to_root_output_matrix[to(w), from(w)] += weight(w)
+    end
+    root_input_to_root_output_weights = filter(x->(type(from(x)) == :root_input && type(to(x)) == :root_output), weights(graph))
+    for w in root_input_to_root_output_weights
+        root_input_to_root_output_matrix[to(w), from(w)] += weight(w)
+    end
+
+    neuron_to_neuron_matrix, root_input_to_neuron_matrix, neuron_to_root_output_matrix, root_input_to_root_output_matrix
+end
+
+# Private method for recursively creating nodes from a component tree, excluding the top level
+function make_all_qualified_nodes_sublevel(comp::Component, current_path::Path)
+    nodes = Vector{Node}()
+    # add inputs, outputs, and neurons as nodes, with current_path
+    # call this function for every component, and append that component's name to current_path
+
+    # nodes = vcat(nodes, input_nodes, output_nodes) # this is in the wrong spot
+    for neuron in neurons(comp)
+        push!(nodes, Node(copy(current_path), neuron, :neuron))
+    end
+
+    for clabel in components(comp)
+        c = comp[clabel]
+        comp_input_nodes = Vector{Node}()
+        comp_output_nodes = Vector{Node}()
+        for input in inputs(c)
+            push!(comp_input_nodes, Node(vcat(copy(current_path), clabel), input, :input))
+        end
+        for output in outputs(c)
+            push!(comp_output_nodes, Node(vcat(copy(current_path), clabel), output, :output))
+        end
+        nodes = vcat(nodes, comp_input_nodes, comp_output_nodes)
+        next_qualified_nodes = make_all_qualified_nodes_sublevel(c, vcat(current_path, clabel))
+
+        nodes = vcat(nodes, next_qualified_nodes)
+    end
+
+    nodes
+end
+
+# Private method for recursively creating weights from a component tree, excluding the top level
+function make_weights_sublevel(comp::Component, nodes::Vector{Node}, current_path::Path, is_root::Bool=false)
+    weights = Vector{Weight}()
+    for p in nonzero_pairs(weights(comp))
+        dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
+        src_node = get_node_from_label(nodes, p[1][2], true, current_path, is_root)
+        push!(weights, Weight(p[2], src_node, dest_node))
+    end
+    for clabel in components(comp)
+        c = comp[clabel]
+        weights = vcat(weights, make_weights_sublevel(c, nodes, vcat(current_path, clabel)))
+    end
+    weights
+end
+
+# Private method.
+# Given the node to_sub, all incoming and outgoing weights will be replaced 
+# by the product of each incoming weight times each outgoing weight.
+# The resulting weight configuration is equivalent.
+function substitute_node!(graph::Graph, to_sub::Node)
+    
+    incoming = incoming_weights(weights(graph), to_sub)
+    outgoing = outgoing_weights(weights(graph), to_sub)
+
+    for i in incoming
+        for o in outgoing
+            @assert from(i) != to(i)
+            push!(weights(graph), Weight(weight(i) * weight(o), from(i), to(o)))
+        end
+    end
+
+    for i in incoming
+        deleteat!(weights(graph), findall(x->x == i, weights(graph)))
+    end
+    for o in outgoing
+        deleteat!(weights(graph), findall(x->x == o, weights(graph)))
+    end
+
+    deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
+    nothing
+end

@@ -74,6 +74,9 @@ outputs(c::Component) = indices_with_labels(output_length(c), c.output.labels)
 neurons(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
 components(c::Component) = indices_with_labels(length(c.components), c.components.labels)
 
+# other getters TODO: finish and replace property access with these
+weights(c::Component) = c.weights
+
 function add_neurons!(c::Component, n::Int)
     add_neurons!(c.neurons, n)
     build_weights_matrix!(c)

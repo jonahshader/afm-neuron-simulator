@@ -1,4 +1,4 @@
-include("afmgraph.jl")
+include("graph/afmgraph.jl")
 include("afmcomponent.jl")
 include("utils.jl")
 
@@ -28,7 +28,7 @@ mutable struct AFMModelParts{T<:AbstractFloat}
     sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
 end
 
-# adding an internal interface to reduce refactoring required
+# internal interface to reduce refactoring required
 root(parts::AFMModelParts) = parts.root
 reduced_graph(parts::AFMModelParts) = parts.reduced_graph
 tspan(parts::AFMModelParts) = parts.tspan
@@ -63,28 +63,26 @@ function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSo
     parts.sol = sol
 end
 
-
-
 function solve!(parts::AFMModelParts)
     set_sol!(parts, solve(ode_problem(parts)))
 end
 
-function build_u0(root::Component)
-    θ_init = map_component_array_depth_first(x->x.neurons.θ_init, root)
-    dθ_init = map_component_array_depth_first(x->x.neurons.dθ_init, root)
-    hcat(θ_init, dθ_init)
-end
-
 build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
-function build_p(root::Component, nnm, inm, nom, iom, input_functions::Vector{Function})
-    neuron_p = build_neuron_params(root)
-    model_input_temp = similar(neuron_p[1], length(root.input))
-    n_voltage_temp = similar(neuron_p[1])
-    n_arr_temp2 = similar(neuron_p[1])
-    n_arr_accum = similar(neuron_p[1])
+function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
+    graph = Graph{Float64}(root)
+    substitute_internal_io!(weights, nodes)
+    mats = graph_to_labeled_matrix(weights, nodes)
+    u0 = build_u0(root)
+    neuron_params = build_neuron_params(root)
+    model_input_temp = similar(neuron_params[1], length(root.input))
+    n_voltage_temp = similar(neuron_params[1])
+    n_arr_temp2 = similar(neuron_params[1])
+    n_arr_accum = similar(neuron_params[1])
 
-    (neuron_p..., raw(nnm), raw(inm), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
+    p = (neuron_params..., raw(nnm), raw(inm), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
+    prob = ODEProblem(afm_diffeq!, u0, tspan, p)
+    AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
 function make_gaussian(a, b, c)
@@ -187,16 +185,7 @@ function plot_dΘ(parts::AFMModelParts; args...)
     plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
 end
 
-function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
-    nodes = make_nodes_from_component_tree(root)
-    weights = make_weights_from_component_tree(root, nodes)
-    substitute_internal_io!(weights, nodes)
-    mats = graph_to_labeled_matrix(weights, nodes)
-    u0 = build_u0(root)
-    p = build_p(root, mats..., input_functions)
-    prob = ODEProblem(afm_diffeq!, u0, tspan, p)
-    AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
-end
+
 
 function rebuild_model_parts!(root::Component, parts::AFMModelParts; tspan=nothing, input_functions=nothing)
     if !isnothing(tspan)

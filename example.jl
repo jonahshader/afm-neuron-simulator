@@ -1,5 +1,5 @@
 include("afmcomponent.jl")
-include("afmgraph.jl")
+include("graph/afmgraph.jl")
 include("afmdiffeq.jl")
 
 using DifferentialEquations

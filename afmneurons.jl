@@ -78,3 +78,9 @@ function build_neuron_params(root)
     bias = map_component_array_depth_first(x->x.neurons.bias, root)
     (sigma, a, we, wex, beta, bias)
 end
+
+function build_u0(root)
+    θ_init = map_component_array_depth_first(x->x.neurons.θ_init, root)
+    dθ_init = map_component_array_depth_first(x->x.neurons.dθ_init, root)
+    hcat(θ_init, dθ_init)
+end
