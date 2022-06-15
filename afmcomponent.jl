@@ -69,13 +69,18 @@ output_length(c::Component) = length(c.output)
 # they return Vector{Union{String, Int}}, so the user needs to convert them to the appropriate format
 # when using them later for referencing. E.g. neurons are referenced with the type Tuple{Union{String, Int}}
 # and components are referenced with the type Tuple{Union{String, Int}, Union{String, Int}}
-inputs(c::Component) = indices_with_labels(input_length(c), c.input.labels)
-outputs(c::Component) = indices_with_labels(output_length(c), c.output.labels)
-neurons(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
-components(c::Component) = indices_with_labels(length(c.components), c.components.labels)
+input_labels(c::Component) = indices_with_labels(input_length(c), c.input.labels)
+output_labels(c::Component) = indices_with_labels(output_length(c), c.output.labels)
+neuron_labels(c::Component) = indices_with_labels(length(c.neurons), c.neuron_labels)
+component_labels(c::Component) = indices_with_labels(length(c.components), c.components.labels)
 
-# other getters TODO: finish and replace property access with these
+# normal getters
+input(c::Component) = c.input
+output(c::Component) = c.output
+components(c::Component) = c.components
+neurons(c::Component) = c.neurons
 weights(c::Component) = c.weights
+weights_trainable_mask(c::Component) = c.weights_trainable_mask
 
 function add_neurons!(c::Component, n::Int)
     add_neurons!(c.neurons, n)
@@ -135,15 +140,15 @@ end
 
 function sources(c::Component)::Vector{Label}
     sources = Vector{Label}()
-    for i in inputs(c)
+    for i in input_labels(c)
         push!(sources, i)
     end
-    for n in neurons(c)
+    for n in neuron_labels(c)
         push!(sources, (n,))
     end
 
     for clabel in indices_with_labels(c.components)
-        for output in outputs(c[clabel])
+        for output in output_labels(c[clabel])
             push!(sources, (clabel, output))
         end
     end
@@ -152,15 +157,15 @@ end
 
 function destinations(c::Component)::Vector{Label}
     destinations = Vector{Label}()
-    for i in outputs(c)
+    for i in output_labels(c)
         push!(destinations, i)
     end
-    for n in neurons(c)
+    for n in neuron_labels(c)
         push!(destinations, (n,))
     end
 
     for clabel in indices_with_labels(c.components)
-        for input in inputs(c[clabel])
+        for input in input_labels(c[clabel])
             push!(destinations, (clabel, input))
         end
     end

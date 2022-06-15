@@ -1,5 +1,7 @@
 include("../afmcomponent.jl")
 
+using AutoHashEquals
+
 const Path = Vector{Union{String, Int}}
 @auto_hash_equals struct Node
     path::Path

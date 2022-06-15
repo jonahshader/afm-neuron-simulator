@@ -5,7 +5,6 @@ include("../utils.jl")
 include("node.jl")
 include("weight.jl")
 
-using AutoHashEquals
 using LinearAlgebra
 using SparseArrays
 

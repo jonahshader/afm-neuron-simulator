@@ -62,7 +62,6 @@ end
 function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing})
     parts.sol = sol
 end
-
 function solve!(parts::AFMModelParts)
     set_sol!(parts, solve(ode_problem(parts)))
 end
@@ -71,8 +70,8 @@ build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
 function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
     graph = Graph{Float64}(root)
-    substitute_internal_io!(weights, nodes)
-    mats = graph_to_labeled_matrix(weights, nodes)
+    substitute_internal_io!(graph)
+    mats = graph_to_labeled_matrix(graph)
     u0 = build_u0(root)
     neuron_params = build_neuron_params(root)
     model_input_temp = similar(neuron_params[1], length(root.input))

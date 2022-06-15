@@ -10,5 +10,5 @@ function sum_of_solution(u0, p)
 end
 
 mats = graph_to_labeled_matrix(parts.graph.weights, parts.graph.nodes)
-p = build_p(full_adder, mats..., input_functions)
+p = build_p(full_adder, mats..., input_funs)
 du01,dp1 = Zygote.gradient(sum_of_solution, parts.u0, ComponentArray(p))

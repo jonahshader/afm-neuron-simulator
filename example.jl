@@ -60,7 +60,7 @@ set_weight!(xor, ("or1", 1), 1, 1.0)
 
 # # println(full_adder)
 
-input_functions = input_to_spikes([1.0, 0.0, 0.0])
+input_funs = input_to_spikes([1.0, 0.0, 0.0])
 # # for i in 1:3
 # #     push!(input_functions, x->x)
 # # end
@@ -68,12 +68,12 @@ input_functions = input_to_spikes([1.0, 0.0, 0.0])
 # u0 = build_u0(full_adder)
 # p = build_p(full_adder, mats..., input_functions)
 
-tspan = (0.0, 8e-12)
+ts = (0.0, 8e-12)
 # prob = ODEProblem(afm_diffeq!, u0, tspan, p)
 
 # @time sol = solve(prob)
 
-parts = build_model_parts(full_adder, tspan, input_functions)
+parts = build_model_parts(full_adder, ts, input_funs)
 solve!(parts)
 # @time sol = solve(parts.ode_problem)
 
