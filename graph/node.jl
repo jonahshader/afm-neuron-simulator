@@ -5,6 +5,7 @@ using AutoHashEquals
 const Path = Vector{Union{String, Int}}
 @auto_hash_equals struct Node
     path::Path
+    name::Union{String, Int}
     type::Symbol
 end
 

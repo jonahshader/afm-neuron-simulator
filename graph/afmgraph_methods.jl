@@ -1,15 +1,21 @@
 include("afmgraph.jl")
 
+function Graph{T}(comp::Component) where {T<:AbstractFloat}
+    nodes = make_nodes(comp)
+    weights = make_weights_from_component_tree(comp, nodes)
+    Graph{T}(nodes, weights)
+end
+
 # Top level function to create all nodes from a component tree
 function make_nodes(comp::Component)
     root_inputs = Vector{Node}()
     root_outputs = Vector{Node}()
 
-    for input in inputs(comp)
+    for input in input_labels(comp)
         push!(root_inputs, Node(Path(), input, :root_input))
     end
 
-    for output in outputs(comp)
+    for output in output_labels(comp)
         push!(root_outputs, Node(Path(), output, :root_output))
     end
 
@@ -24,8 +30,8 @@ function make_weights_from_component_tree(root::Component, nodes::Vector{Node})
 end
 
 # Returns all weights of which the destination is the specified node.
-function incoming_weights(weights::Vector{Weight}, node::Node)
-    incoming = Vector{Weight}()
+function incoming_weights(weights::Vector{Weight{T}}, node::Node) where {T<:AbstractFloat}
+    incoming = Vector{Weight{T}}()
     for weight in weights
         if to(weight) == node
             push!(incoming, weight)
@@ -35,8 +41,8 @@ function incoming_weights(weights::Vector{Weight}, node::Node)
 end
 
 # Returns all weights of which the source is the specified node.
-function outgoing_weights(weights::Vector{Weight}, node::Node)
-    outgoing = Vector{Weight}()
+function outgoing_weights(weights::Vector{Weight{T}}, node::Node) where {T<:AbstractFloat}
+    outgoing = Vector{Weight{T}}()
     for weight in weights
         if from(weight) == node
             push!(outgoing, weight)
@@ -97,18 +103,18 @@ function make_all_qualified_nodes_sublevel(comp::Component, current_path::Path)
     # call this function for every component, and append that component's name to current_path
 
     # nodes = vcat(nodes, input_nodes, output_nodes) # this is in the wrong spot
-    for neuron in neurons(comp)
+    for neuron in neuron_labels(comp)
         push!(nodes, Node(copy(current_path), neuron, :neuron))
     end
 
-    for clabel in components(comp)
+    for clabel in component_labels(comp)
         c = comp[clabel]
         comp_input_nodes = Vector{Node}()
         comp_output_nodes = Vector{Node}()
-        for input in inputs(c)
+        for input in input_labels(c)
             push!(comp_input_nodes, Node(vcat(copy(current_path), clabel), input, :input))
         end
-        for output in outputs(c)
+        for output in output_labels(c)
             push!(comp_output_nodes, Node(vcat(copy(current_path), clabel), output, :output))
         end
         nodes = vcat(nodes, comp_input_nodes, comp_output_nodes)
@@ -122,17 +128,17 @@ end
 
 # Private method for recursively creating weights from a component tree, excluding the top level
 function make_weights_sublevel(comp::Component, nodes::Vector{Node}, current_path::Path, is_root::Bool=false)
-    weights = Vector{Weight}()
+    weight_list = Vector{Weight}()
     for p in nonzero_pairs(weights(comp))
         dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
         src_node = get_node_from_label(nodes, p[1][2], true, current_path, is_root)
-        push!(weights, Weight(p[2], src_node, dest_node))
+        push!(weight_list, Weight(p[2], src_node, dest_node))
     end
-    for clabel in components(comp)
+    for clabel in component_labels(comp)
         c = comp[clabel]
-        weights = vcat(weights, make_weights_sublevel(c, nodes, vcat(current_path, clabel)))
+        weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel)))
     end
-    weights
+    weight_list
 end
 
 # Private method.

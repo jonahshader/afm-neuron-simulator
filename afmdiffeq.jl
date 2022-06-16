@@ -1,4 +1,4 @@
-include("graph/afmgraph.jl")
+include("graph/afmgraph_methods.jl")
 include("afmcomponent.jl")
 include("utils.jl")
 
@@ -71,7 +71,7 @@ build_u0(parts::AFMModelParts) = build_u0(root(parts))
 function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
     graph = Graph{Float64}(root)
     substitute_internal_io!(graph)
-    mats = graph_to_labeled_matrix(graph)
+    mats = reduced_graph_to_labeled_matrix(graph)
     u0 = build_u0(root)
     neuron_params = build_neuron_params(root)
     model_input_temp = similar(neuron_params[1], length(root.input))
@@ -79,8 +79,9 @@ function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions:
     n_arr_temp2 = similar(neuron_params[1])
     n_arr_accum = similar(neuron_params[1])
 
-    p = (neuron_params..., raw(nnm), raw(inm), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
+    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
+    # TODO: where i left off refactoring
     AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
@@ -174,14 +175,14 @@ function plot_Θ(parts::AFMModelParts; args...)
     label = build_plot_labels(parts.graph.nodes)
     first = 1
     last = length(label)÷2
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
 function plot_dΘ(parts::AFMModelParts; args...)
     label = build_plot_labels(parts.graph.nodes)
     first = (length(label)÷2) + 1
     last = length(label)
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
 

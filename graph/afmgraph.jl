@@ -17,9 +17,3 @@ end
 nodes(graph::Graph) = graph.nodes
 weights(graph::Graph) = graph.weights
 
-function Graph{T}(comp::Component) where {T<:AbstractFloat}
-    nodes = make_nodes(comp)
-    weights = make_weights_from_component_tree(comp, nodes)
-    Graph{T}(nodes, weights)
-end
-
