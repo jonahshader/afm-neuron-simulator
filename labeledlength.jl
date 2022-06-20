@@ -8,6 +8,10 @@ function raw(v::LabeledLength)
     v.length
 end
 
+function set_raw!(l::LabeledLength, n)
+    l.length = n
+end
+
 function LabeledLength{L}(length::Int) where {L}
     LabeledLength{L}(length, Dict{L, Int}(), Dict{Int, L}())
 end

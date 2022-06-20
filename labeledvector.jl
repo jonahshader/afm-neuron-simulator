@@ -9,6 +9,10 @@ function raw(v::LabeledVector)
     v.vector
 end
 
+function set_raw!(l::LabeledVector, v)
+    l.vector = v
+end
+
 LabeledVector{T, L}(vector::AbstractVector{T}) where {T, L} = LabeledVector{T, L}(vector, Dict{L, Int}(), Dict{Int, L}())
 function LabeledVector{T, L}(vector::AbstractVector{T}, init_labels::AbstractVector{L}) where {T, L}
     v = LabeledVector(vector)

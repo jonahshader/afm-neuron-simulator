@@ -20,6 +20,8 @@ mutable struct AFMModelParts{T<:AbstractFloat}
     # sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
     root::Component
     reduced_graph::Graph{T}
+    nom::AbstractMatrix{T}
+    iom::AbstractMatrix{T}
     tspan::Tuple{T, T}
     u0::AbstractMatrix{T}
     p::Tuple
@@ -31,6 +33,10 @@ end
 # internal interface to reduce refactoring required
 root(parts::AFMModelParts) = parts.root
 reduced_graph(parts::AFMModelParts) = parts.reduced_graph
+nnm(parts::AFMModelParts) = p(parts)[7]
+inm(parts::AFMModelParts) = p(parts)[8]
+nom(parts::AFMModelParts) = parts.nom
+iom(parts::AFMModelParts) = parts.iom
 tspan(parts::AFMModelParts) = parts.tspan
 u0(parts::AFMModelParts) = parts.u0
 p(parts::AFMModelParts) = parts.p
@@ -82,7 +88,7 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
     p = (neuron_params..., raw(mats[1]), raw(mats[2]), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     # TODO: where i left off refactoring
-    AFMModelParts{Float64}(root, graph, tspan, u0, p, input_functions, prob, nothing)
+    AFMModelParts{Float64}(root, graph, raw(mats[3]), raw(mats[4]), tspan, u0, p, input_functions, prob, nothing)
     # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
@@ -137,7 +143,7 @@ end
 
 function input(parts::AFMModelParts)
     # https://discourse.julialang.org/t/mapping-vector-of-functions-to-vector-of-numbers/20942
-    transpose(parts.sol.t) .|> parts.input_functions
+    transpose(sol(parts).t) .|> input_functions(parts)
     # (|>).(transpose(parts.sol.t), parts.input_functions)
 end
 
@@ -145,14 +151,14 @@ function output(parts::AFMModelParts)
     # Θ_part = view(parts.sol, :, 1, :)
     dΘ_part = view(parts.sol, :, 2, :)
     # Θ_output = parts.nom * Θ_part
-    dΘ_output = (parts.nom * dΘ_part) + (parts.iom * input(parts))
+    dΘ_output = (nom(parts) * dΘ_part) + (iom(parts) * input(parts))
 
-    # TODO: compute Θ of input functions? integrate?
+    # TODO: compute Θ of input functions?
 end
 
 function output_max(parts::AFMModelParts)
     dΘ_output = output(parts)
-    findmax(dΘ_output, dims = 2)[1]
+    findmax(dΘ_output, dims = 2)[1][:]
 end
 
 function output_binary(parts::AFMModelParts, threshold=2e12)

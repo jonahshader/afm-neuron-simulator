@@ -10,6 +10,10 @@ function raw(m::LabeledMatrix)
     m.matrix
 end
 
+function set_raw!(l::LabeledMatrix, m)
+    l.matrix = m
+end
+
 LabeledMatrix{T, L}(matrix::AbstractMatrix{T}) where {T, L} = LabeledMatrix{T, L}(matrix, Dict{L, Int}(), Dict{Int, L}(), Dict{L, Int}(), Dict{Int, L}())
 
 get_matrix(m::LabeledMatrix) = m.matrix
