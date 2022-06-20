@@ -82,6 +82,7 @@ neurons(c::Component) = c.neurons
 weights(c::Component) = c.weights
 weights_trainable_mask(c::Component) = c.weights_trainable_mask
 
+
 function add_neurons!(c::Component, n::Int)
     add_neurons!(c.neurons, n)
     build_weights_matrix!(c)

@@ -60,7 +60,7 @@ set_weight!(xor, ("or1", 1), 1, 1.0)
 
 # # println(full_adder)
 
-input_funs = input_to_spikes([1.0, 0.0, 0.0])
+input_funs = input_to_spikes([1.0, 1.0, 1.0])
 # # for i in 1:3
 # #     push!(input_functions, x->x)
 # # end

@@ -22,7 +22,7 @@ mutable struct AFMModelParts{T<:AbstractFloat}
     reduced_graph::Graph{T}
     tspan::Tuple{T, T}
     u0::AbstractMatrix{T}
-    p::AbstractVectorOfArray
+    p::Tuple
     input_functions::Vector{Function}
     ode_problem::ODEProblem
     sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
@@ -50,7 +50,7 @@ end
 function set_u0!(parts::AFMModelParts, u0::AbstractMatrix)
     parts.u0 = u0
 end
-function set_p!(parts::AFMModelParts, p::AbstractVectorOfArray)
+function set_p!(parts::AFMModelParts, p::Tuple)
     parts.p = p
 end
 function set_input_functions!(parts::AFMModelParts, input_functions::Vector{Function})
@@ -68,7 +68,7 @@ end
 
 build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
-function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions::Vector{Function}=Vector{Function}())
+function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}())
     graph = Graph{Float64}(root)
     substitute_internal_io!(graph)
     mats = reduced_graph_to_labeled_matrix(graph)
@@ -79,11 +79,28 @@ function build_model_parts(root::Component, tspan=(0.0, 8e-12), input_functions:
     n_arr_temp2 = similar(neuron_params[1])
     n_arr_accum = similar(neuron_params[1])
 
-    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
+    p = (neuron_params..., raw(mats[1]), raw(mats[2]), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     # TODO: where i left off refactoring
-    AFMModelParts{Float64}(root, graph, tspan, u0, p, input_function, prob, nothing)
+    AFMModelParts{Float64}(root, graph, tspan, u0, p, input_functions, prob, nothing)
     # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
+end
+
+function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input_functions=nothing)
+    rebuild_needed = false
+    if !isnothing(new_tspan)
+        set_tspan!(parts, new_tspan)
+        rebuild_needed = true
+    end
+    if !isnothing(new_input_functions)
+        params = p(parts)
+        set_p!(parts, (params[1:length(params)-1]..., new_input_functions))
+        rebuild_needed = true
+    end
+    if rebuild_needed
+        set_ode_problem!(parts, ODEProblem(afm_diffeq!, u0(parts), tspan(parts), p(parts)))
+    end
+    nothing
 end
 
 function make_gaussian(a, b, c)
@@ -173,31 +190,19 @@ function build_plot_labels(nodes::Vector{Node})
 end
 
 function plot_Θ(parts::AFMModelParts; args...)
-    label = build_plot_labels(parts.graph.nodes)
+    label = build_plot_labels(nodes(reduced_graph(parts)))
     first = 1
     last = length(label)÷2
     plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
 function plot_dΘ(parts::AFMModelParts; args...)
-    label = build_plot_labels(parts.graph.nodes)
+    label = build_plot_labels(nodes(reduced_graph(parts)))
     first = (length(label)÷2) + 1
     last = length(label)
     plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
-
-
-function rebuild_model_parts!(root::Component, parts::AFMModelParts; tspan=nothing, input_functions=nothing)
-    if !isnothing(tspan)
-        parts.prob.tspan = tspan
-    end
-    if !isnothing(input_functions)
-        parts.input_functions = input_functions
-    end
-    p = build_p(root, parts.nnm, parts.inm, parts.nom, parts.iom, input_functions)
-    parts.prob = ODEProblem(afm_diffeq!, parts.u0, parts.tspan, p)
-end
 
 function parameters_view(root::Component)
     views = Vector{SubArray{Float64, 2}}()
