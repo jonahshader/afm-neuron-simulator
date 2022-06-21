@@ -209,14 +209,15 @@ function plot_dΘ(parts::AFMModelParts; args...)
     plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
 end
 
-
-function parameters_view(root::Component)
-    views = Vector{SubArray{Float64, 2}}()
+function parameter_mask_view(root::Component)
+    param_views = Vector{SubArray{Float64, 2}}()
+    mask_views = Vector{SubArray{Bool, 2}}()
 
     unique_components = unique(map_component_array_depth_first(x->x, root))
     for c in unique_components
-        push!(views, view(raw(c.weights), :, :))
+        push!(param_views, view(raw(weights(c)), :, :))
+        push!(mask_views, view(raw(weights_trainable_mask(c)), :, :))
     end
 
-    VectorOfArray(views)
+    (VectorOfArray(param_views), VectorOfArray(mask_views))
 end
