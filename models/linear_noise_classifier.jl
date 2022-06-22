@@ -8,7 +8,7 @@ using Plots
 
 const input_size = 5
 lin_noise_classifier = Component(input_size, 1)
-add_neurons!(lin_noise_classifier, 10)
+add_neurons!(lin_noise_classifier, 50)
 
 const init_noise_scale = 0.2
 
@@ -78,5 +78,5 @@ end
 
 parts = build_model_parts(lin_noise_classifier, (0.0, 6e-12), input_to_spikes([1.0, 1.0, 1.0, 1.0, 1.0]))
 
-# custom_loss_fun = generate_loss_fun(10, 5)
-# train!(parts, custom_loss_fun, 10, 20)
+custom_loss_fun = generate_loss_fun(10, 5)
+train!(parts, custom_loss_fun, 50, 20)

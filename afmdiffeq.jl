@@ -37,6 +37,7 @@ nnm(parts::AFMModelParts) = p(parts)[7]
 inm(parts::AFMModelParts) = p(parts)[8]
 nom(parts::AFMModelParts) = parts.nom
 iom(parts::AFMModelParts) = parts.iom
+raw_mats(parts::AFMModelParts) = (nnm(parts), inm(parts), nom(parts), iom(parts))
 tspan(parts::AFMModelParts) = parts.tspan
 u0(parts::AFMModelParts) = parts.u0
 p(parts::AFMModelParts) = parts.p
@@ -49,6 +50,12 @@ function set_root!(parts::AFMModelParts, root::Component)
 end
 function set_reduced_graph!(parts::AFMModelParts, reduced_graph::Graph)
     parts.reduced_graph = reduced_graph
+end
+function set_nom!(parts::AFMModelParts, nom)
+    parts.nom = nom
+end
+function set_iom!(parts::AFMModelParts, iom)
+    parts.iom = iom
 end
 function set_tspan!(parts::AFMModelParts, tspan::Tuple)
     parts.tspan = tspan
@@ -77,7 +84,7 @@ build_u0(parts::AFMModelParts) = build_u0(root(parts))
 function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}())
     graph = Graph{Float64}(root)
     substitute_internal_io!(graph)
-    mats = reduced_graph_to_labeled_matrix(graph)
+    mats = raw.(reduced_graph_to_labeled_matrix(graph))
     u0 = build_u0(root)
     neuron_params = build_neuron_params(root)
     model_input_temp = similar(neuron_params[1], length(root.input))
@@ -85,31 +92,40 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
     n_arr_temp2 = similar(neuron_params[1])
     n_arr_accum = similar(neuron_params[1])
 
-    p = (neuron_params..., raw(mats[1]), raw(mats[2]), model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
+    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     # TODO: where i left off refactoring
-    AFMModelParts{Float64}(root, graph, raw(mats[3]), raw(mats[4]), tspan, u0, p, input_functions, prob, nothing)
+    AFMModelParts{Float64}(root, graph, mats[3], mats[4], tspan, u0, p, input_functions, prob, nothing)
     # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
 function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input_functions=nothing)
-    rebuild_needed = false
     if !isnothing(new_tspan)
         set_tspan!(parts, new_tspan)
-        rebuild_needed = true
     end
     if !isnothing(new_input_functions)
-        params = p(parts)
-        set_p!(parts, (params[1:length(params)-1]..., new_input_functions))
-        rebuild_needed = true
+        set_input_functions!(parts, new_input_functions)
     end
+    graph = Graph{Float64}(root(parts))
+    substitute_internal_io!(graph)
+    mats = raw.(reduced_graph_to_labeled_matrix(graph))
+    u0 = build_u0(root(parts))
+    neuron_params = build_neuron_params(root(parts))
+    model_input_temp = similar(neuron_params[1], length(root(parts).input))
+    n_voltage_temp = similar(neuron_params[1])
+    n_arr_temp2 = similar(neuron_params[1])
+    n_arr_accum = similar(neuron_params[1])
 
-    new_graph = Graph{Float64}(root(parts))
-    set_reduced_graph!(parts, substitute_internal_io!(new_graph))
+    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions(parts))
+    prob = ODEProblem(afm_diffeq!, u0, tspan(parts), p)
 
-    if rebuild_needed
-        set_ode_problem!(parts, ODEProblem(afm_diffeq!, u0(parts), tspan(parts), p(parts)))
-    end
+    set_reduced_graph!(parts, graph)
+    set_nom!(parts, mats[3])
+    set_iom!(parts, mats[4])
+    set_u0!(parts, u0)
+    set_p!(parts, p)
+    set_ode_problem!(parts, prob)
+    set_sol!(parts, nothing)
     nothing
 end
 
@@ -211,6 +227,16 @@ function plot_dΘ(parts::AFMModelParts; args...)
     first = (length(label)÷2) + 1
     last = length(label)
     plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
+end
+
+# TODO: make this better. should use output labels like other plotting functions
+# should also plot all outputs instead of one
+function plot_output(parts::AFMModelParts, output_index::Int; args...)
+    if typeof(output(parts)[:]) <: Vector
+        plot(sol(parts).t, output(parts)[:], args...)
+    else
+        plot(sol(parts).t, output(parts)[:][output_index], args...)
+    end
 end
 
 function parameter_mask_view(root::Component)
