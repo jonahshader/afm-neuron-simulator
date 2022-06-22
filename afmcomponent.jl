@@ -120,6 +120,22 @@ function set_weights!(c::Component, sources::Vector{Label}, destinations::Vector
     nothing
 end
 
+function set_weight_trainable!(c::Component, source::Label, destination::Label, trainable::Bool)
+    c.weights_trainable_mask[destination, source] = trainable
+    nothing
+end
+
+function set_weights_trainable!(c::Component, sources::Vector{Label}, destinations::Vector{Label}, trainable::AbstractMatrix{Bool})
+    for i in 1:length(sources)
+        source = sources[i]
+        for j in 1:length(destinations)
+            destination = destinations[j]
+            c.weights_trainable_mask[destination, source] = trainable[j, i]
+        end
+    end
+    nothing
+end
+
 # computes the total number of sources inside this component. represents the number of cols in weights matrix
 function internal_source_length(c::Component)::Int
     curr_length = input_length(c)
@@ -129,6 +145,9 @@ function internal_source_length(c::Component)::Int
     end
     curr_length
 end
+
+
+
 # computes the total number of destinations inside this component. represents the number of rows in weights matrix
 function internal_destination_length(c::Component)::Int
     curr_length = output_length(c)

@@ -31,12 +31,14 @@ function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, 
 
     population = Vector{InstanceEval{typeof(zero)}}()
     center_params = deepcopy(init_params)
+    gradient_approx = deepcopy(zero)
 
     for i in 1:population_size
-        push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, i / population_size), 0.0))
+        push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, 0.01), 0.0))
     end
 
     for i in 1:iterations
+        println("Iteration: ", i)
         # mutate
         for p in population
             mutate!(p.params, mask, 0.01)
@@ -45,27 +47,39 @@ function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, 
         # evaluate
         evaluate_all!(parts, init_params, population, loss_fun)
 
+        # report average performance
+        performance = sum(x -> x.eval, population) / length(population)
+        println("iteration: ", i, " performance: ", performance)
+
         # apply rank transform
         sort!(population, by = p -> p.eval)
-        for (i, p) in population
+        for (i, p) in enumerate(population)
             p.eval = (((i-1) / (population_size-1)) * 2) - 1
         end
 
-        # compute weighted average
-        center_params .= zero
+        # compute gradient approximation
+        gradient_approx .= zero
         for p in population
-            center_params .+= p.params * p.eval
+            gradient_approx .+= p.params * p.eval
         end
-        center_params ./= population_size
-        
+        gradient_approx ./= population_size
+
+        # update center_params with gradient approximation
+        center_params .-= gradient_approx
+
+        # copy center_params to population
+        for p in population
+            p.params .= center_params
+        end
     end
+
+    init_params .= center_params
 end
 
 function evaluate!(parts::AFMModelParts, init_params, eval_instance, loss_fun)
     init_params .= eval_instance.params
     eval_instance.eval = loss_fun(parts)
 end
-
 
 function evaluate_all!(parts::AFMModelParts, init_params, population, loss_fun)
     for p in population
