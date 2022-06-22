@@ -103,6 +103,10 @@ function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input
         set_p!(parts, (params[1:length(params)-1]..., new_input_functions))
         rebuild_needed = true
     end
+
+    new_graph = Graph{Float64}(root(parts))
+    set_reduced_graph!(parts, substitute_internal_io!(new_graph))
+
     if rebuild_needed
         set_ode_problem!(parts, ODEProblem(afm_diffeq!, u0(parts), tspan(parts), p(parts)))
     end

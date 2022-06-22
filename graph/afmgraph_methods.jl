@@ -57,7 +57,7 @@ function substitute_internal_io!(graph::Graph)
     for to_sub in to_subs
         substitute_node!(graph, to_sub)
     end
-    nothing
+    graph
 end
 
 # Populates a labeled weight matrix with the weights of the reduced graph
