@@ -1,9 +1,18 @@
 
-include("afmneurons.jl")
-include("utils.jl")
-include("labeledmatrix.jl")
-include("labeledlength.jl")
-include("labeledvector.jl")
+# include("afmneurons.jl")
+# include("utils.jl")
+# include("labeledmatrix.jl")
+# include("labeledlength.jl")
+# include("labeledvector.jl")
+
+export Component
+export add_component!
+export add_neurons!
+export set_weight!
+export set_weights!
+export set_weight_trainable!
+export set_weights_trainable!
+
 
 const ComponentLabel = Union{String, Int}
 const NeuronLabel = Union{Tuple{String}, Tuple{Int}}

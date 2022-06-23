@@ -1,5 +1,5 @@
-include("afmcomponent.jl")
-include("afmdiffeq.jl")
+# include("afmcomponent.jl")
+# include("afmdiffeq.jl")
 
 mutable struct InstanceEval{T}
     params::T
@@ -20,7 +20,7 @@ end
 
 function loss!(parts::AFMModelParts, single_input, single_target_output; peak_output=8e12)
     rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input))
-    solve!(parts)
+    solve_parts!(parts)
     sum(((output_max(parts) ./ peak_output) .- single_target_output) .^ 2) / length(single_target_output)
 end
 

@@ -1,6 +1,9 @@
-include("afmcomponent.jl")
-include("graph/afmgraph.jl")
-include("afmdiffeq.jl")
+# include("afmcomponent.jl")
+# include("graph/afmgraph.jl")
+# include("afmdiffeq.jl")
+
+include("afmneuronsim/afmneuronsim.jl")
+using .AFMNeuronSim
 
 using DifferentialEquations
 using Plots
@@ -74,7 +77,7 @@ ts = (0.0, 8e-12)
 # @time sol = solve(prob)
 
 parts = build_model_parts(full_adder, ts, input_funs)
-solve!(parts)
+solve_parts!(parts)
 # @time sol = solve(parts.ode_problem)
 
 # plot(sol, label = build_plot_labels(graph.nodes))

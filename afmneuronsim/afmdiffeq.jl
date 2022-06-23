@@ -1,11 +1,41 @@
-include("graph/afmgraph_methods.jl")
-include("afmcomponent.jl")
-include("utils.jl")
+# include("graph/afmgraph_methods.jl")
+# include("afmcomponent.jl")
+# include("utils.jl")
 
 using LinearAlgebra
 using SparseArrays
 using DifferentialEquations
 using RecursiveArrayTools
+using Plots
+
+
+# export root, set_root!
+# export nnm
+# export inm
+# export nom
+# export iom
+# export tspan, set_tspan!
+# export u0, set_u0!
+# export input_functions
+# export ode_problem
+# export sol
+
+export solve_parts!
+export input_to_spikes
+export build_model_parts
+export rebuild_model_parts!
+export input_to_spikes
+export peak_output
+export input
+export output
+export output_max
+export output_binary
+export plot_Θ
+export plot_dΘ
+export plot_output
+export parameter_mask_view
+
+
 
 mutable struct AFMModelParts{T<:AbstractFloat}
     # graph::Graph{T}
@@ -75,7 +105,7 @@ end
 function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing})
     parts.sol = sol
 end
-function solve!(parts::AFMModelParts)
+function solve_parts!(parts::AFMModelParts)
     set_sol!(parts, solve(ode_problem(parts)))
 end
 

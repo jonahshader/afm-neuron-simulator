@@ -1,7 +1,7 @@
-include("afmcomponent.jl")
-include("graph/afmgraph.jl")
-include("afmdiffeq.jl")
-include("afmtraining.jl")
+# include("afmcomponent.jl")
+# include("graph/afmgraph.jl")
+# include("afmdiffeq.jl")
+# include("afmtraining.jl")
 
 using DifferentialEquations
 using Plots
