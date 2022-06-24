@@ -1,5 +1,3 @@
-include("../afmcomponent.jl")
-
 using AutoHashEquals
 
 const Path = Vector{Union{String, Int}}

@@ -1,17 +1,26 @@
+export set_defaults!
+
+
 const TERA = 10e12
 const GIGA = 10e9
 const FEMTO = 10e-15
 
-const _fex = 27.5 * TERA
-const _a = 0.01
-const _fe = 1.75 * GIGA
-const _sigma = 2.16 * TERA
+_fex = 27.5 * TERA
+_a = 0.01
+_fe = 1.75 * GIGA
+_sigma = 2.16 * TERA
 
-const _wex = _fex * 2pi
-const _we = _fe * 2pi
-const _beta = 0.11 * FEMTO
+_wex = _fex * 2pi
+_we = _fe * 2pi
+_beta = 0.11 * FEMTO
+
+_Θ_init = nothing
+_dΘ_init = 0.0
+_bias = 0.0023
+
 
 const ϵ = 1e-8
+
 # TODO: change Neurons to be a type alias on a Matrix with 8 rows and n cols.
 # this makes it easier to perform operations on Neurons like concatination
 mutable struct Neurons
@@ -36,9 +45,36 @@ function Base.length(n::Neurons)::Int
     Base.length(n.θ_init)
 end
 
+function set_defaults!(Θ_init=nothing, dΘ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias=nothing)
+    if !isnothing(Θ_init)
+        _Θ_init = Θ_init
+    end
+    if !isnothing(dΘ_init)
+        _dΘ_init = dΘ_init
+    end
+    if !isnothing(sigma)
+        _sigma = sigma
+    end
+    if !isnothing(a)
+        _a = a
+    end
+    if !isnothing(we)
+        _we = we
+    end
+    if !isnothing(wex)
+        _wex = wex
+    end
+    if !isnothing(beta)
+        _beta = beta
+    end
+    if !isnothing(bias)
+        _bias = bias
+    end
+end
+
 # neurons: the neurons struct that will be added to
 # n: number of neurons to add with the specified values
-function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Union{Float64, Nothing}=nothing, dθ_init=0.0, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=0.0023)
+function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Union{Float64, Nothing}=_Θ_init, dθ_init=_dΘ_init, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=_bias)
     # if θ_init is nothing, then initialize it to the resting position calculated from bias - ϵ (or + ϵ)
     # if there is no resting positon due to bias being higher than some threshold, then initialize it to zero i guess
     

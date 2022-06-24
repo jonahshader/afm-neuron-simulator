@@ -91,9 +91,17 @@ neurons(c::Component) = c.neurons
 weights(c::Component) = c.weights
 weights_trainable_mask(c::Component) = c.weights_trainable_mask
 
+# TODO: where i left off
+function add_neurons!(c::Component, names::Vector{String}; args...)
+    curr_neurons = length(neurons(c))
+    add_neurons!(neurons(c), n; args...)
+    for i in curr_neurons:(curr_neurons+length(names))
+        neuron_labels[names[i+1-curr_neurons]] = i+1
+    end
+end
 
-function add_neurons!(c::Component, n::Int)
-    add_neurons!(c.neurons, n)
+function add_neurons!(c::Component, n::Int; args...)
+    add_neurons!(c.neurons, n; args...)
     build_weights_matrix!(c)
 end
 
