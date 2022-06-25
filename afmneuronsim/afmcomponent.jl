@@ -7,11 +7,33 @@
 
 export Component
 export add_component!
+export add_neuron!
 export add_neurons!
+
 export set_weight!
 export set_weights!
 export set_weight_trainable!
 export set_weights_trainable!
+
+export input_length
+export output_length
+export input_labels
+export output_labels
+export neuron_labels
+export component_labels
+
+export input
+export output
+export components
+export neurons
+export weights
+export weights_trainable_mask
+
+export getindex
+export sources_length
+export destinations_length
+export sources
+export destinations
 
 
 const ComponentLabel = Union{String, Int}
@@ -94,14 +116,29 @@ weights_trainable_mask(c::Component) = c.weights_trainable_mask
 # TODO: where i left off
 function add_neurons!(c::Component, names::Vector{String}; args...)
     curr_neurons = length(neurons(c))
-    add_neurons!(neurons(c), n; args...)
+    add_neurons!(neurons(c), length(names); args...)
     for i in curr_neurons:(curr_neurons+length(names))
-        neuron_labels[names[i+1-curr_neurons]] = i+1
+        name = names[i+1-curr_neurons]
+        @assert !haskey(c.neuron_labels, name)
+        c.neuron_labels[name] = i+1
     end
+    build_weights_matrix!(c)
 end
 
 function add_neurons!(c::Component, n::Int; args...)
-    add_neurons!(c.neurons, n; args...)
+    add_neurons!(neurons(c), n; args...)
+    build_weights_matrix!(c)
+end
+
+function add_neuron!(c::Component, name::String; args...)
+    add_neurons!(neurons(c), 1; args...)
+    @assert !haskey(c.neuron_labels, name)
+    c.neuron_labels[name] = length(neurons(c))
+    build_weights_matrix!(c)
+end
+
+function add_neuron!(c::Component; args...)
+    add_neurons!(neurons(c), 1; args...)
     build_weights_matrix!(c)
 end
 
@@ -154,7 +191,7 @@ function set_weights_trainable!(c::Component, sources::Vector{Label}, destinatio
 end
 
 # computes the total number of sources inside this component. represents the number of cols in weights matrix
-function internal_source_length(c::Component)::Int
+function sources_length(c::Component)::Int
     curr_length = input_length(c)
     curr_length += length(c.neurons)
     for sc::Component in c.components.vector
@@ -166,7 +203,7 @@ end
 
 
 # computes the total number of destinations inside this component. represents the number of rows in weights matrix
-function internal_destination_length(c::Component)::Int
+function destinations_length(c::Component)::Int
     curr_length = output_length(c)
     curr_length += length(c.neurons)
     for sc::Component in c.components.vector
@@ -210,8 +247,8 @@ function destinations(c::Component)::Vector{Label}
 end
 
 function build_weights_matrix!(c::Component)
-    int_dest_len = internal_destination_length(c)
-    int_src_len = internal_source_length(c)
+    int_dest_len = destinations_length(c)
+    int_src_len = sources_length(c)
     c.weights = LabeledMatrix{Float64, Label}(zeros(Float64, int_dest_len, int_src_len))
     c.weights_trainable_mask = LabeledMatrix{Bool, Label}(zeros(Bool, int_dest_len, int_src_len))
     dest = destinations(c)

@@ -30,10 +30,13 @@ export input
 export output
 export output_max
 export output_binary
+export build_neuron_labels
 export plot_Θ
 export plot_dΘ
 export plot_output
 export parameter_mask_view
+
+export sol
 
 
 
@@ -240,34 +243,52 @@ function afm_diffeq!(du, u, p, t)
     @. dudΦ = (sigma * n_arr_accum - a*dΦ - (we/2) * sin(2*Φ)) * wex
 end
 
-function build_plot_labels(nodes::Vector{Node})
+function build_input_labels(parts::AFMModelParts)
+    # TODO:
+end
+
+function build_neuron_labels(nodes::Vector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
     hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
 end
 
+build_neuron_labels(parts::AFMModelParts) = build_neuron_labels(nodes(reduced_graph(parts)))
+
 function plot_Θ(parts::AFMModelParts; args...)
-    label = build_plot_labels(nodes(reduced_graph(parts)))
+    label = build_neuron_labels(nodes(reduced_graph(parts)))
     first = 1
     last = length(label)÷2
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
 end
 
 function plot_dΘ(parts::AFMModelParts; args...)
-    label = build_plot_labels(nodes(reduced_graph(parts)))
+    label = build_neuron_labels(nodes(reduced_graph(parts)))
     first = (length(label)÷2) + 1
     last = length(label)
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last], args...)
+    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
 end
 
-# TODO: make this better. should use output labels like other plotting functions
-# should also plot all outputs instead of one
 function plot_output(parts::AFMModelParts, output_index::Int; args...)
-    if typeof(output(parts)[:]) <: Vector
-        plot(sol(parts).t, output(parts)[:], args...)
-    else
-        plot(sol(parts).t, output(parts)[:][output_index], args...)
-    end
+    label = output_labels(root(parts))
+    plot(sol(parts).t, transpose(output(parts))[:, output_index], label=transpose(label)[output_index]; args...)
 end
+
+function plot_output(parts::AFMModelParts; args...)
+    label = output_labels(root(parts))
+    plot(sol(parts).t, transpose(output(parts)), label=transpose(label); args...)
+end
+
+function plot_input(parts::AFMModelParts, input_index::Int; args...)
+    label = input_labels(root(parts))
+    plot(sol(parts).t, transpose(input(parts))[:, input_index], label=transpose(label)[input_index]; args...)
+end
+
+function plot_input(parts::AFMModelParts; args...)
+    label = input_labels(root(parts))
+    plot(sol(parts).t, transpose(input(parts)), label=transpose(label); args...)
+end
+
+
 
 function parameter_mask_view(root::Component)
     param_views = Vector{SubArray{Float64, 2}}()

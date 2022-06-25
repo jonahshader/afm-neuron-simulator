@@ -74,7 +74,7 @@ end
 
 # neurons: the neurons struct that will be added to
 # n: number of neurons to add with the specified values
-function add_neurons!(neurons::Neurons, n::Int=1, θ_init::Union{Float64, Nothing}=_Θ_init, dθ_init=_dΘ_init, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=_bias)
+function add_neurons!(neurons::Neurons, n::Int=1; θ_init::Union{Float64, Nothing}=_Θ_init, dθ_init=_dΘ_init, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=_bias)
     # if θ_init is nothing, then initialize it to the resting position calculated from bias - ϵ (or + ϵ)
     # if there is no resting positon due to bias being higher than some threshold, then initialize it to zero i guess
     
