@@ -34,8 +34,17 @@ export build_neuron_labels
 export plot_Θ
 export plot_dΘ
 export plot_output
+export plot_input
 export parameter_mask_view
 
+export root
+export reduced_graph
+export nnm
+export inm
+export nom
+export iom
+export tspan
+export u0
 export sol
 
 
@@ -270,25 +279,23 @@ end
 
 function plot_output(parts::AFMModelParts, output_index::Int; args...)
     label = output_labels(root(parts))
-    plot(sol(parts).t, transpose(output(parts))[:, output_index], label=transpose(label)[output_index]; args...)
+    plot(sol(parts).t, transpose(output(parts))[:, output_index], label=reshape(label, (1, length(label)))[output_index]; args...)
 end
 
 function plot_output(parts::AFMModelParts; args...)
     label = output_labels(root(parts))
-    plot(sol(parts).t, transpose(output(parts)), label=transpose(label); args...)
+    plot(sol(parts).t, transpose(output(parts)), label=reshape(label, (1, length(label))); args...)
 end
 
 function plot_input(parts::AFMModelParts, input_index::Int; args...)
     label = input_labels(root(parts))
-    plot(sol(parts).t, transpose(input(parts))[:, input_index], label=transpose(label)[input_index]; args...)
+    plot(sol(parts).t, transpose(input(parts))[:, input_index], label=reshape(label, (1, length(label)))[input_index]; args...)
 end
 
 function plot_input(parts::AFMModelParts; args...)
     label = input_labels(root(parts))
-    plot(sol(parts).t, transpose(input(parts)), label=transpose(label); args...)
+    plot(sol(parts).t, transpose(input(parts)), label=reshape(label, (1, length(label))); args...)
 end
-
-
 
 function parameter_mask_view(root::Component)
     param_views = Vector{SubArray{Float64, 2}}()
