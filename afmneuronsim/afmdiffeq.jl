@@ -300,9 +300,7 @@ end
 function plot_dΘ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
     neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
     label = map(x->node_str(x), neuron_nodes)
-    first = (length(label)÷2) + 1
-    last = length(label)
-    # label_truncated = map(x->x[nextind(x, 1):end], label)
+    first = length(label)
     
     indices = if full_depth
         findall(x->is_subpath(path, x), label)
@@ -317,8 +315,6 @@ function plot_Θ(parts::AFMModelParts, path::String, full_depth::Bool = false; a
     neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
     label = map(x->node_str(x), neuron_nodes)
     first = 1
-    last = (length(label)÷2) + 1
-    # label_truncated = map(x->x[nextind(x, 1):end], label)
     
     indices = if full_depth
         findall(x->is_subpath(path, x), label)
