@@ -2,8 +2,9 @@
 # include("graph/afmgraph.jl")
 # include("afmdiffeq.jl")
 
-include("afmneuronsim/afmneuronsim.jl")
-using .AFMNeuronSim
+# include("afmneuronsim/afmneuronsim.jl")
+# using .AFMNeuronSim
+include("afmneuronsim/includes.jl")
 
 using DifferentialEquations
 using Plots

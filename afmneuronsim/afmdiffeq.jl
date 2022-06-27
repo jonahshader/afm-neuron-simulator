@@ -252,29 +252,81 @@ function afm_diffeq!(du, u, p, t)
     @. dudΦ = (sigma * n_arr_accum - a*dΦ - (we/2) * sin(2*Φ)) * wex
 end
 
-function build_input_labels(parts::AFMModelParts)
-    # TODO:
-end
+# function build_neuron_labels(nodes::Vector{Node})
+#     neuron_nodes = filter(x->x.type == :neuron, nodes)
+#     hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
+# end
 
 function build_neuron_labels(nodes::Vector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
-    hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
+    hcat(map(x->node_str(x), neuron_nodes)...)
 end
+
+# function build_neuron_node_paths(nodes::Vector{Node})
+#     filter(x->x.type == :neuron, nodes)
+# end
 
 build_neuron_labels(parts::AFMModelParts) = build_neuron_labels(nodes(reduced_graph(parts)))
 
 function plot_Θ(parts::AFMModelParts; args...)
-    label = build_neuron_labels(nodes(reduced_graph(parts)))
-    first = 1
-    last = length(label)÷2
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
+    label = build_neuron_labels(parts)
+    plot(parts.sol, vars=hcat(1:length(label)), label=label, yaxis="Θ"; args...)
 end
 
 function plot_dΘ(parts::AFMModelParts; args...)
-    label = build_neuron_labels(nodes(reduced_graph(parts)))
+    label = build_neuron_labels(parts)
+    plot(parts.sol, vars=hcat(length(label):(length(label)*2)-1), label=label, yaxis="dΘ"; args...)
+end
+
+function is_subpath(subpath::String, path::String)
+    subpath_pos = findfirst(subpath, path)
+    if isnothing(subpath_pos)
+        return false
+    else
+        return subpath_pos.start == 1
+    end
+end
+
+# returns true if the path is only one deeper than subpath
+function is_immediate_subpath(subpath::String, path::String)
+    subpath_pos = findfirst(subpath, path)
+    if isnothing(subpath_pos)
+        return false
+    else
+        return subpath_pos.start == 1 && count(x->x=='[', path[subpath_pos.stop:end]) == 0
+    end
+end
+
+function plot_dΘ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
+    neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
+    label = map(x->node_str(x), neuron_nodes)
     first = (length(label)÷2) + 1
     last = length(label)
-    plot(parts.sol, vars=hcat(first:last), label=label[:, first:last]; args...)
+    # label_truncated = map(x->x[nextind(x, 1):end], label)
+    
+    indices = if full_depth
+        findall(x->is_subpath(path, x), label)
+    else
+        findall(x->is_immediate_subpath(path, x), label)
+    end
+    filtered_labels = label[indices]
+    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="dΘ"; args...)
+end
+
+function plot_Θ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
+    neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
+    label = map(x->node_str(x), neuron_nodes)
+    first = 1
+    last = (length(label)÷2) + 1
+    # label_truncated = map(x->x[nextind(x, 1):end], label)
+    
+    indices = if full_depth
+        findall(x->is_subpath(path, x), label)
+    else
+        findall(x->is_immediate_subpath(path, x), label)
+    end
+    filtered_labels = label[indices]
+    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="Θ"; args...)
 end
 
 function plot_output(parts::AFMModelParts, output_index::Int; args...)
