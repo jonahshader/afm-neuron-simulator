@@ -9,7 +9,7 @@ using RecursiveArrayTools
 using Plots
 
 
-# export root, set_root!
+# export root, set_root!Θ
 # export nnm
 # export inm
 # export nom
@@ -117,6 +117,13 @@ end
 function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing})
     parts.sol = sol
 end
+
+"""
+    solve_parts!(parts::AFMModelParts)
+
+Solves the ODE described by `parts` using DifferentialEquations.jl's solve function.
+This populates the `sol` field of `parts`, which can be accessed using `sol(parts)`.
+"""
 function solve_parts!(parts::AFMModelParts)
     set_sol!(parts, solve(ode_problem(parts)))
 end
@@ -177,11 +184,18 @@ function make_gaussian(a, b, c)
     end
 end
 
-# takes a vector of inputs from 0 to 1 and converts them to spikes with magnitues proportional to the input
-function input_to_spikes(inputs::Vector{Float64})::Vector{Function}
+"""
+    input_to_spikes(inputs::Vector{Float64}, peak_current=0.0026, spike_center=7e-13, spike_width=3e-13)::Vector{Function}
+
+Takes a vector of inputs with values between 0 and 1 and converts them to spikes with magnitudes proportional to the input.
+The result is the vector of functions which take in time and return current. These are intended to be passed to `build_model_parts` as input functions.
+The spikes produced by this function are Gaussian. Properties of the spike can be specified by overriding the default values, which are
+`peak_current`, `spike_center`, and `spike_width`.
+"""
+function input_to_spikes(inputs::Vector{Float64}, peak_current=0.0026, spike_center=7e-13, spike_width=3e-13)::Vector{Function}
     input_funs = Vector{Function}()
     for i in inputs
-        push!(input_funs, make_gaussian(0.0026 * i, 0.7e-12, 3e-13))
+        push!(input_funs, make_gaussian(peak_current * i, spike_center, spike_width))
     end
     input_funs
 end
