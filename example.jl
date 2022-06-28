@@ -82,8 +82,8 @@ solve_parts!(parts)
 # @time sol = solve(parts.ode_problem)
 
 # plot(sol, label = build_plot_labels(graph.nodes))
-plot_dΘ(parts)
-plot_Θ(parts)
+plot_dΦ(parts)
+plot_Φ(parts)
 
 # x_vals = vcat(0:999) * 0.001 * tspan[2]
 # can get this from parts.sol.t

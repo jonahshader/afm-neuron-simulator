@@ -9,7 +9,7 @@ using RecursiveArrayTools
 using Plots
 
 
-# export root, set_root!Θ
+# export root, set_root!Φ
 # export nnm
 # export inm
 # export nom
@@ -31,8 +31,8 @@ export output
 export output_max
 export output_binary
 export build_neuron_labels
-export plot_Θ
-export plot_dΘ
+export plot_Φ
+export plot_dΦ
 export plot_output
 export plot_input
 export parameter_mask_view
@@ -206,8 +206,8 @@ function peak_output(parts::AFMModelParts, sol)
     curr_output_accum = zeros(Float64, size(parts.iom)[1])
     curr_input = zeros(Float64, size(parts.iom)[2])
     for i in 1:size(sol)[3]
-        dΘ = view(sol, [:, 2, i])
-        mul!(curr_output, parts.iom, dΘ)
+        dΦ = view(sol, [:, 2, i])
+        mul!(curr_output, parts.iom, dΦ)
     end
 
     # mul!(model_arr_accum, iom, model_input_temp)
@@ -220,21 +220,20 @@ end
 function input(parts::AFMModelParts)
     # https://discourse.julialang.org/t/mapping-vector-of-functions-to-vector-of-numbers/20942
     transpose(sol(parts).t) .|> input_functions(parts)
-    # (|>).(transpose(parts.sol.t), parts.input_functions)
 end
 
 function output(parts::AFMModelParts)
-    # Θ_part = view(parts.sol, :, 1, :)
-    dΘ_part = view(parts.sol, :, 2, :)
-    # Θ_output = parts.nom * Θ_part
-    dΘ_output = (nom(parts) * dΘ_part) + (iom(parts) * input(parts))
+    # Φ_part = view(parts.sol, :, 1, :)
+    dΦ_part = view(parts.sol, :, 2, :)
+    # Φ_output = parts.nom * Φ_part
+    dΦ_output = (nom(parts) * dΦ_part) + (iom(parts) * input(parts))
 
-    # TODO: compute Θ of input functions?
+    # TODO: compute Φ of input functions?
 end
 
 function output_max(parts::AFMModelParts)
-    dΘ_output = output(parts)
-    findmax(dΘ_output, dims = 2)[1][:]
+    dΦ_output = output(parts)
+    findmax(dΦ_output, dims = 2)[1][:]
 end
 
 function output_binary(parts::AFMModelParts, threshold=2e12)
@@ -268,7 +267,7 @@ end
 
 # function build_neuron_labels(nodes::Vector{Node})
 #     neuron_nodes = filter(x->x.type == :neuron, nodes)
-#     hcat(map(x->"Θ" * node_str(x), neuron_nodes)..., map(x->"dΘ" * node_str(x), neuron_nodes)...)
+#     hcat(map(x->"Φ" * node_str(x), neuron_nodes)..., map(x->"dΦ" * node_str(x), neuron_nodes)...)
 # end
 
 function build_neuron_labels(nodes::Vector{Node})
@@ -282,14 +281,14 @@ end
 
 build_neuron_labels(parts::AFMModelParts) = build_neuron_labels(nodes(reduced_graph(parts)))
 
-function plot_Θ(parts::AFMModelParts; args...)
+function plot_Φ(parts::AFMModelParts; args...)
     label = build_neuron_labels(parts)
-    plot(parts.sol, vars=hcat(1:length(label)), label=label, yaxis="Θ"; args...)
+    plot(parts.sol, vars=hcat(1:length(label)), label=label, yaxis="Φ"; args...)
 end
 
-function plot_dΘ(parts::AFMModelParts; args...)
+function plot_dΦ(parts::AFMModelParts; args...)
     label = build_neuron_labels(parts)
-    plot(parts.sol, vars=hcat(length(label):(length(label)*2)-1), label=label, yaxis="dΘ"; args...)
+    plot(parts.sol, vars=hcat(length(label):(length(label)*2)-1), label=label, yaxis="dΦ"; args...)
 end
 
 function is_subpath(subpath::String, path::String)
@@ -311,7 +310,7 @@ function is_immediate_subpath(subpath::String, path::String)
     end
 end
 
-function plot_dΘ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
+function plot_dΦ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
     neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
     label = map(x->node_str(x), neuron_nodes)
     first = length(label)
@@ -322,10 +321,10 @@ function plot_dΘ(parts::AFMModelParts, path::String, full_depth::Bool = false; 
         findall(x->is_immediate_subpath(path, x), label)
     end
     filtered_labels = label[indices]
-    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="dΘ"; args...)
+    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="dΦ"; args...)
 end
 
-function plot_Θ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
+function plot_Φ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
     neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
     label = map(x->node_str(x), neuron_nodes)
     first = 1
@@ -336,7 +335,7 @@ function plot_Θ(parts::AFMModelParts, path::String, full_depth::Bool = false; a
         findall(x->is_immediate_subpath(path, x), label)
     end
     filtered_labels = label[indices]
-    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="Θ"; args...)
+    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="Φ"; args...)
 end
 
 function plot_output(parts::AFMModelParts, output_index::Int; args...)

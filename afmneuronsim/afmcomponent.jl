@@ -55,6 +55,11 @@ mutable struct Component
     weights_trainable_mask::LabeledMatrix{Bool, Label}
 end
 
+"""
+    Component(input_length::Int, output_length::Int)
+
+Creates a component with `input_length` inputs and `output_length` outputs.
+"""
 function Component(input_length::Int, output_length::Int)
     comp = Component(
         LabeledLength{String}(input_length),
@@ -69,6 +74,11 @@ function Component(input_length::Int, output_length::Int)
     comp
 end
 
+"""
+    Component(input_length::Int, outputs::Vector{String})
+
+Creates a component with `input_length` inputs and `outputs` labeled outputs.
+"""
 function Component(input_length::Int, outputs::Vector{String})
     output_length = length(outputs)
     comp = Component(input_length, output_length)
@@ -76,6 +86,11 @@ function Component(input_length::Int, outputs::Vector{String})
     comp
 end
 
+"""
+    Component(inputs::Vector{String}, output_length::Int)
+
+Creates a component with `inputs` labeled inputs and `output_length` outputs.
+"""
 function Component(inputs::Vector{String}, output_length::Int)
     input_length = length(inputs)
     comp = Component(input_length, output_length)
@@ -83,6 +98,11 @@ function Component(inputs::Vector{String}, output_length::Int)
     comp
 end
 
+"""
+    Component(inputs::Vector{String}, outputs::Vector{String})
+
+Creates a component with `inputs` labeled inputs and `outputs` labeled outputs.
+"""
 function Component(inputs::Vector{String}, outputs::Vector{String})
     input_length = length(inputs)
     output_length = length(outputs)
@@ -142,6 +162,12 @@ function add_neuron!(c::Component; args...)
     build_weights_matrix!(c)
 end
 
+"""
+    add_component!(parent::Component, child::Component, name::String)
+
+Inserts `child` into `parent` and makes `child` addressable by `name` via `parent[name]`.
+This function currently rebuilds the weight matrices, so make sure to assign weights after calling this function.
+"""
 function add_component!(parent::Component, child::Component, name::String)
     @assert !haslabel(parent.components, name)
     push_and_label!(parent.components, child, name)
@@ -149,12 +175,24 @@ function add_component!(parent::Component, child::Component, name::String)
     nothing
 end
 
+"""
+    add_component!(parent::Component, child::Component)
+
+Inserts `child` into `parent` and makes `child` addressable by its index via `parent[index]`.
+This function currently rebuilds the weight matrices, so make sure to assign weights after calling this function.
+"""
 function add_component!(parent::Component, child::Component)
     push!(parent.components, child)
     build_weights_matrix!(parent)
     nothing
 end
 
+"""
+    Base.getindex(c::Component, key_or_index)
+
+Get a child component. E.g. c["a"] returns the component named "a". c[3] returns the 3rd component, if it doesn't have a name.
+These can be chained together to naviagte through the component tree.
+"""
 Base.getindex(c::Component, key_or_index)::Component = c.components[key_or_index]
 
 function set_weight!(c::Component, source::Label, destination::Label, weight::AbstractFloat)
