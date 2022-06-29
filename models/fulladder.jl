@@ -16,7 +16,7 @@ add_component!(full_adder, or, "or1")
 
 scale = 0.4
 set_weight!(full_adder, "a", ("xor1", 1), scale)
-set_weight!(full_adder, "a", ("and2", 2), scale)
+set_weight!(full_adder, "a", ("and2", 1), scale)
 set_weight!(full_adder, "b", ("xor1", 2), scale)
 set_weight!(full_adder, "b", ("and2", 2), scale)
 set_weight!(full_adder, "c-in", ("xor2", 2), scale)
@@ -36,7 +36,7 @@ set_weight!(and, (1,), 1, scale)
 add_neurons!(or, 1)
 set_weight!(or, 1, (1,), scale)
 set_weight!(or, 2, (1,), scale)
-set_weight!(or, (1,), 1, scale * .5)
+set_weight!(or, (1,), 1, scale)
 
 add_component!(xor, and, "and1")
 add_component!(xor, or, "or1")
