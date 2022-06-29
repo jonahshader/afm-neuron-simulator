@@ -1,4 +1,7 @@
+include("../afmneuronsim/afmneuronsim.jl")
+using .AFMNeuronSim
 
+include("../afmneuronsim/afmtraining.jl")
 
 
 using DifferentialEquations
@@ -77,4 +80,4 @@ end
 parts = build_model_parts(lin_noise_classifier, (0.0, 6e-12), input_to_spikes([1.0, 1.0, 1.0, 1.0, 1.0]))
 
 custom_loss_fun = generate_loss_fun(10, 5)
-train!(parts, custom_loss_fun, 50, 20)
+train!(parts, custom_loss_fun, 50, 10)
