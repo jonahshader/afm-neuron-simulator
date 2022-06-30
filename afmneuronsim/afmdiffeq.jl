@@ -70,6 +70,8 @@ mutable struct AFMModelParts{T<:AbstractFloat}
     p::Tuple
     input_functions::Vector{Function}
     ode_problem::ODEProblem
+    sparse_::Bool
+    gpu::Bool
     sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
 end
 
@@ -86,6 +88,8 @@ u0(parts::AFMModelParts) = parts.u0
 p(parts::AFMModelParts) = parts.p
 input_functions(parts::AFMModelParts) = parts.input_functions
 ode_problem(parts::AFMModelParts) = parts.ode_problem
+sparse_(parts::AFMModelParts) = parts.sparse_
+gpu(parts::AFMModelParts) = parts.gpu
 sol(parts::AFMModelParts) = parts.sol
 
 function set_root!(parts::AFMModelParts, root::Component)
@@ -115,6 +119,12 @@ end
 function set_ode_problem!(parts::AFMModelParts, ode_problem::ODEProblem)
     parts.ode_problem = ode_problem
 end
+function set_sparse_!(parts::AFMModelParts, sparse_::Bool)
+    parts.sparse_ = sparse_
+end
+function set_gpu!(parts::AFMModelParts, gpu::Bool)
+    parts.gpu = gpu
+end
 function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing})
     parts.sol = sol
 end
@@ -131,12 +141,13 @@ end
 
 build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
-function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}())
-    graph = Graph{Float64}(root)
+function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
+    stype = if gpu Float32 else Float64 end
+    graph = Graph{stype}(root)
     substitute_internal_io!(graph)
-    mats = raw.(reduced_graph_to_labeled_matrix(graph))
-    u0 = build_u0(root)
-    neuron_params = build_neuron_params(root)
+    mats = raw.(reduced_graph_to_labeled_matrix(graph, sparse_, gpu))
+    u0 = build_u0(root, gpu)
+    neuron_params = build_neuron_params(root, gpu)
     model_input_temp = similar(neuron_params[1], length(root.input))
     n_voltage_temp = similar(neuron_params[1])
     n_arr_temp2 = similar(neuron_params[1])
@@ -145,22 +156,31 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
     p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     # TODO: where i left off refactoring
-    AFMModelParts{Float64}(root, graph, mats[3], mats[4], tspan, u0, p, input_functions, prob, nothing)
+    
+    AFMModelParts{stype}(root, graph, mats[3], mats[4], tspan, u0, p, input_functions, prob, sparse_, gpu, nothing)
     # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
-function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input_functions=nothing)
+
+function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input_functions=nothing, new_sparse=nothing, new_gpu=nothing)
+    if !isnothing(new_sparse)
+        set_sparse_!(parts, new_sparse)
+    end
+    if !isnothing(new_gpu)
+        set_gpu!(parts, new_gpu)
+    end
     if !isnothing(new_tspan)
         set_tspan!(parts, new_tspan)
     end
     if !isnothing(new_input_functions)
         set_input_functions!(parts, new_input_functions)
     end
-    graph = Graph{Float64}(root(parts))
+    stype = if gpu(parts) Float32 else Float64 end
+    graph = Graph{stype}(root(parts))
     substitute_internal_io!(graph)
-    mats = raw.(reduced_graph_to_labeled_matrix(graph))
-    u0 = build_u0(root(parts))
-    neuron_params = build_neuron_params(root(parts))
+    mats = raw.(reduced_graph_to_labeled_matrix(graph, sparse_(parts), gpu(parts)))
+    u0 = build_u0(root(parts), gpu(parts))
+    neuron_params = build_neuron_params(root(parts), gpu(parts))
     model_input_temp = similar(neuron_params[1], length(root(parts).input))
     n_voltage_temp = similar(neuron_params[1])
     n_arr_temp2 = similar(neuron_params[1])
@@ -251,9 +271,10 @@ function afm_diffeq!(du, u, p, t)
     duΦ .= dΦ
 
     # populate model_input_temp from list of functions of time
-    for i in eachindex(input_functions)
-        model_input_temp[i] = input_functions[i](t)
-    end
+    model_input_temp .= t .|> input_functions
+    # for i in eachindex(input_functions)
+    #     model_input_temp[i] = input_functions[i](t)
+    # end
 
     # model_input to neuron_input
     n_voltage_temp .= dΦ .* beta # n_voltage_temp represents the voltage generated from the neurons

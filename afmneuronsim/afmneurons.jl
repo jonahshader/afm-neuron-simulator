@@ -1,5 +1,6 @@
-export set_defaults!
+using CUDA
 
+export set_defaults!
 
 const TERA = 10e12
 const GIGA = 10e9
@@ -105,18 +106,32 @@ function add_neurons!(neurons::Neurons, n::Int=1; Φ_init::Union{Float64, Nothin
     neurons.bias = vcat(neurons.bias, fill(bias, n))
 end
 
-function build_neuron_params(root)
+function build_neuron_params(root, gpu=false)
     sigma = map_component_array_depth_first(x->x.neurons.sigma, root)
     a = map_component_array_depth_first(x->x.neurons.a, root)
     we = map_component_array_depth_first(x->x.neurons.we, root)
     wex = map_component_array_depth_first(x->x.neurons.wex, root)
     beta = map_component_array_depth_first(x->x.neurons.beta, root)
     bias = map_component_array_depth_first(x->x.neurons.bias, root)
+
+    if gpu
+        sigma = CuArray{Float32}(sigma)
+        a = CuArray{Float32}(a)
+        we = CuArray{Float32}(we)
+        wex = CuArray{Float32}(wex)
+        beta = CuArray{Float32}(beta)
+        bias = CuArray{Float32}(bias)
+    end
     (sigma, a, we, wex, beta, bias)
 end
 
-function build_u0(root)
+function build_u0(root, gpu=false)
     Φ_init = map_component_array_depth_first(x->x.neurons.Φ_init, root)
     dΦ_init = map_component_array_depth_first(x->x.neurons.dΦ_init, root)
+
+    if gpu
+        Φ_init = CuArray{Float32}(Φ_init)
+        dΦ_init = CuArray{Float32}(dΦ_init)
+    end
     hcat(Φ_init, dΦ_init)
 end

@@ -1,8 +1,12 @@
 include("afmgraph.jl")
 
+using SparseArrays
+using CUDA
+using CUDA.CUSPARSE
+
 function Graph{T}(comp::Component) where {T<:AbstractFloat}
     nodes = make_nodes(comp)
-    weights = make_weights_from_component_tree(comp, nodes)
+    weights = make_weights_from_component_tree(comp, nodes, T)
     Graph{T}(nodes, weights)
 end
 
@@ -25,8 +29,8 @@ function make_nodes(comp::Component)
 end
 
 # Top level function for creating weights from a component tree and nodes
-function make_weights_from_component_tree(root::Component, nodes::Vector{Node})
-    make_weights_sublevel(root, nodes, Path(), true)
+function make_weights_from_component_tree(root::Component, nodes::Vector{Node}, T::DataType)
+    make_weights_sublevel(root, nodes, Path(), T, true)
 end
 
 # Returns all weights of which the destination is the specified node.
@@ -61,16 +65,22 @@ function substitute_internal_io!(graph::Graph)
 end
 
 # Populates a labeled weight matrix with the weights of the reduced graph
-function reduced_graph_to_labeled_matrix(graph::Graph)
+function reduced_graph_to_labeled_matrix(graph::Graph, sparse_=true, gpu=false)
     
     neuron_nodes = filter(x->type(x) == :neuron, nodes(graph))
     root_input_nodes = filter(x->type(x) == :root_input, nodes(graph))
     root_output_nodes = filter(x->type(x) == :root_output, nodes(graph))
 
-    neuron_to_neuron_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(neuron_nodes), length(neuron_nodes))))
-    root_input_to_neuron_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(neuron_nodes), length(root_input_nodes))))
-    neuron_to_root_output_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(root_output_nodes), length(neuron_nodes))))
-    root_input_to_root_output_matrix = LabeledMatrix{Float64, Node}(sparse(zeros(Float64, length(root_output_nodes), length(root_input_nodes))))
+    neuron_to_neuron_matrix_raw = zeros(Float64, length(neuron_nodes), length(neuron_nodes))
+    root_input_to_neuron_matrix_raw = zeros(Float64, length(neuron_nodes), length(root_input_nodes))
+    neuron_to_root_output_matrix_raw = zeros(Float64, length(root_output_nodes), length(neuron_nodes))
+    root_input_to_root_output_matrix_raw = zeros(Float64, length(root_output_nodes), length(root_input_nodes))
+
+    neuron_to_neuron_matrix = LabeledMatrix{Float64, Node}(neuron_to_neuron_matrix_raw)
+    root_input_to_neuron_matrix = LabeledMatrix{Float64, Node}(root_input_to_neuron_matrix_raw)
+    neuron_to_root_output_matrix = LabeledMatrix{Float64, Node}(neuron_to_root_output_matrix_raw)
+    root_input_to_root_output_matrix = LabeledMatrix{Float64, Node}(root_input_to_root_output_matrix_raw)
+
     set_labels!(neuron_to_neuron_matrix, neuron_nodes, neuron_nodes)
     set_labels!(root_input_to_neuron_matrix, neuron_nodes, root_input_nodes)
     set_labels!(neuron_to_root_output_matrix, root_output_nodes, neuron_nodes)
@@ -92,6 +102,32 @@ function reduced_graph_to_labeled_matrix(graph::Graph)
     for w in root_input_to_root_output_weights
         root_input_to_root_output_matrix[to(w), from(w)] += weight(w)
     end
+
+    if sparse_
+        neuron_to_neuron_matrix_raw = sparse(neuron_to_neuron_matrix_raw)
+        root_input_to_neuron_matrix_raw = sparse(root_input_to_neuron_matrix_raw)
+        neuron_to_root_output_matrix_raw = sparse(neuron_to_root_output_matrix_raw)
+        root_input_to_root_output_matrix_raw = sparse(root_input_to_root_output_matrix_raw)
+        if gpu
+            neuron_to_neuron_matrix_raw = CuSparseMatrixCSC{Float32}(neuron_to_neuron_matrix_raw)
+            root_input_to_neuron_matrix_raw = CuSparseMatrixCSC{Float32}(root_input_to_neuron_matrix_raw)
+            neuron_to_root_output_matrix_raw = CuSparseMatrixCSC{Float32}(neuron_to_root_output_matrix_raw)
+            root_input_to_root_output_matrix_raw = CuSparseMatrixCSC{Float32}(root_input_to_root_output_matrix_raw)
+        end
+    else
+        if gpu
+            neuron_to_neuron_matrix_raw = CuMatrix{Float32}(neuron_to_neuron_matrix_raw)
+            root_input_to_neuron_matrix_raw = CuMatrix{Float32}(root_input_to_neuron_matrix_raw)
+            neuron_to_root_output_matrix_raw = CuMatrix{Float32}(neuron_to_root_output_matrix_raw)
+            root_input_to_root_output_matrix_raw = CuMatrix{Float32}(root_input_to_root_output_matrix_raw)
+        end
+    end
+
+    # since these are references to the matrices, we need to reassign the raw matrices of the labeled matrices
+    set_raw!(neuron_to_neuron_matrix, neuron_to_neuron_matrix_raw)
+    set_raw!(root_input_to_neuron_matrix, root_input_to_neuron_matrix_raw)
+    set_raw!(neuron_to_root_output_matrix, neuron_to_root_output_matrix_raw)
+    set_raw!(root_input_to_root_output_matrix, root_input_to_root_output_matrix_raw)
 
     neuron_to_neuron_matrix, root_input_to_neuron_matrix, neuron_to_root_output_matrix, root_input_to_root_output_matrix
 end
@@ -127,16 +163,16 @@ function make_all_qualified_nodes_sublevel(comp::Component, current_path::Path)
 end
 
 # Private method for recursively creating weights from a component tree, excluding the top level
-function make_weights_sublevel(comp::Component, nodes::Vector{Node}, current_path::Path, is_root::Bool=false)
-    weight_list = Vector{Weight}()
+function make_weights_sublevel(comp::Component, nodes::Vector{Node}, current_path::Path, T::DataType, is_root::Bool=false)
+    weight_list = Vector{Weight{T}}()
     for p in nonzero_pairs(weights(comp))
         dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
         src_node = get_node_from_label(nodes, p[1][2], true, current_path, is_root)
-        push!(weight_list, Weight(p[2], src_node, dest_node))
+        push!(weight_list, Weight(convert(T, p[2]), src_node, dest_node))
     end
     for clabel in component_labels(comp)
         c = comp[clabel]
-        weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel)))
+        weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
     end
     weight_list
 end
