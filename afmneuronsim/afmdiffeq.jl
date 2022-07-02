@@ -153,7 +153,7 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
     n_arr_temp2 = similar(neuron_params[1])
     n_arr_accum = similar(neuron_params[1])
 
-    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions)
+    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, (input_functions...))
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
     # TODO: where i left off refactoring
     
@@ -186,7 +186,7 @@ function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input
     n_arr_temp2 = similar(neuron_params[1])
     n_arr_accum = similar(neuron_params[1])
 
-    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, input_functions(parts))
+    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, (input_functions(parts)...))
     prob = ODEProblem(afm_diffeq!, u0, tspan(parts), p)
 
     set_reduced_graph!(parts, graph)
