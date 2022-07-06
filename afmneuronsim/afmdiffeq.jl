@@ -356,13 +356,14 @@ e.g. `plot_dΦ(parts, "[xor1]", title="dΦ of all neurons in parts")`
 function plot_dΦ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
     neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
     label = map(x->node_str(x), neuron_nodes)
-    first = length(label)
-    
+    first = length(label) + 1
     indices = if full_depth
         findall(x->is_subpath(path, x), label)
     else
         findall(x->is_immediate_subpath(path, x), label)
     end
+
+    @assert !isempty(indices) "No neurons selected to plot!"
     filtered_labels = label[indices]
     plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="dΦ"; args...)
 end
@@ -387,6 +388,8 @@ function plot_Φ(parts::AFMModelParts, path::String, full_depth::Bool = false; a
     else
         findall(x->is_immediate_subpath(path, x), label)
     end
+    
+    @assert !isempty(indices) "No neurons selected to plot!"
     filtered_labels = label[indices]
     plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="Φ"; args...)
 end
