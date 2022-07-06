@@ -287,19 +287,10 @@ function afm_diffeq!(du, u, p, t)
     @. dudΦ = (sigma * n_arr_accum - a*dΦ - (we/2) * sin(2*Φ)) * wex
 end
 
-# function build_neuron_labels(nodes::Vector{Node})
-#     neuron_nodes = filter(x->x.type == :neuron, nodes)
-#     hcat(map(x->"Φ" * node_str(x), neuron_nodes)..., map(x->"dΦ" * node_str(x), neuron_nodes)...)
-# end
-
 function build_neuron_labels(nodes::Vector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
     hcat(map(x->node_str(x), neuron_nodes)...)
 end
-
-# function build_neuron_node_paths(nodes::Vector{Node})
-#     filter(x->x.type == :neuron, nodes)
-# end
 
 build_neuron_labels(parts::AFMModelParts) = build_neuron_labels(nodes(reduced_graph(parts)))
 """
