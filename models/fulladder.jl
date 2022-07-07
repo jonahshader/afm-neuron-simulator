@@ -1,5 +1,6 @@
-include("../afmneuronsim/afmneuronsim.jl")
-using .AFMNeuronSim
+# include("../afmneuronsim/afmneuronsim.jl")
+# using .AFMNeuronSim
+include("../afmneuronsim/includes.jl")
 
 # using DifferentialEquations
 # using Plots
@@ -14,7 +15,7 @@ add_component!(full_adder, and, "and2")
 or = Component(2, 1)
 add_component!(full_adder, or, "or1")
 
-scale = 0.4
+scale = 0.7
 set_weight!(full_adder, "a", ("xor1", 1), scale)
 set_weight!(full_adder, "a", ("and2", 1), scale)
 set_weight!(full_adder, "b", ("xor1", 2), scale)
@@ -48,7 +49,7 @@ set_weight!(xor, ("and1", 1), 1, -1.0)
 set_weight!(xor, ("or1", 1), 1, 1.0)
 
 input_funs = input_to_spikes([1.0, 1.0, 1.0])
-ts = (0.0, 8e-12)
+ts = (0.0, 9e-11)
 parts = build_model_parts(full_adder, ts, input_funs)
 
 solve_parts!(parts)

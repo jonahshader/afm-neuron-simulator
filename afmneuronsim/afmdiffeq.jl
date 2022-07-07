@@ -72,7 +72,7 @@ mutable struct AFMModelParts{T<:AbstractFloat}
     ode_problem::ODEProblem
     sparse_::Bool
     gpu::Bool
-    sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
+    sol::Union{SciMLBase.AbstractODESolution, Nothing}
 end
 
 # internal interface to reduce refactoring required
@@ -125,7 +125,7 @@ end
 function set_gpu!(parts::AFMModelParts, gpu::Bool)
     parts.gpu = gpu
 end
-function set_sol!(parts::AFMModelParts, sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing})
+function set_sol!(parts::AFMModelParts, sol)
     parts.sol = sol
 end
 
@@ -135,8 +135,8 @@ end
 Solves the ODE described by `parts` using DifferentialEquations.jl's solve function.
 This populates the `sol` field of `parts`, which can be accessed using `sol(parts)`.
 """
-function solve_parts!(parts::AFMModelParts)
-    set_sol!(parts, solve(ode_problem(parts)))
+function solve_parts!(parts::AFMModelParts; args...)
+    set_sol!(parts, solve(ode_problem(parts); args...))
 end
 
 build_u0(parts::AFMModelParts) = build_u0(root(parts))
@@ -213,7 +213,7 @@ The result is the vector of functions which take in time and return current. The
 The spikes produced by this function are Gaussian. Properties of the spike can be specified by overriding the default values, which are
 `peak_current`, `spike_center`, and `spike_width`.
 """
-function input_to_spikes(inputs::Vector{Float64}, peak_current=0.0026, spike_center=7e-13, spike_width=3e-13)::Vector{Function}
+function input_to_spikes(inputs::Vector{Float64}, peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)::Vector{Function}
     input_funs = Vector{Function}()
     for i in inputs
         push!(input_funs, make_gaussian(peak_current * i, spike_center, spike_width))
@@ -285,6 +285,7 @@ function afm_diffeq!(du, u, p, t)
     n_arr_accum .+= bias # add bias current
 
     @. dudΦ = (sigma * n_arr_accum - a*dΦ - (we/2) * sin(2*Φ)) * wex
+    nothing
 end
 
 function build_neuron_labels(nodes::Vector{Node})

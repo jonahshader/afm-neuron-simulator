@@ -2,25 +2,63 @@ using CUDA
 
 export set_defaults!
 
-const TERA = 10e12
-const GIGA = 10e9
-const FEMTO = 10e-15
+const TERA = 1e12 # 10e12
+const GIGA = 1e9 # 10e9
+const FEMTO = 1e-15 # 10e-15
 
 _fex = 27.5 * TERA
-_a = 0.01
-_fe = 1.75 * GIGA
-_sigma = 2.16 * TERA
 
-_wex = _fex * 2pi
-_we = _fe * 2pi
-_beta = 0.11 * FEMTO
+_fe = 1.75 * GIGA
+# _sigma = 2.16 * TERA
+
 
 _Φ_init = nothing
 _dΦ_init = 0.0
-_bias = 0.0023
+_sigma = 27.1e12
+_a = 0.01
+_we = _fe * 2pi
+_wex = _fex * 2pi
+_beta = 0.11e-15
+_bias = 0.0002 # 0.000202
+
+default_neuron_params = [_Φ_init, _dΦ_init, _sigma, _a, _we, _wex, _beta, _bias]
+
+function set_default_Φ_init!(Φ_init)
+    default_neuron_params[1] = Φ_init
+end
+function set_default_dΦ_init!(dΦ_init)
+    default_neuron_params[2] = dΦ_init
+end
+function set_default_sigma!(sigma)
+    default_neuron_params[3] = sigma
+end
+function set_default_a!(a)
+    default_neuron_params[4] = a
+end
+function set_default_we!(we)
+    default_neuron_params[5] = we
+end
+function set_default_wex!(wex)
+    default_neuron_params[6] = wex
+end
+function set_default_beta!(beta)
+    default_neuron_params[7] = beta
+end
+function set_default_bias!(bias)
+    default_neuron_params[8] = bias
+end
+
+get_default_Φ_init() = default_neuron_params[1]
+get_default_dΦ_init() = default_neuron_params[2]
+get_default_sigma() = default_neuron_params[3]
+get_default_a() = default_neuron_params[4]
+get_default_we() = default_neuron_params[5]
+get_default_wex() = default_neuron_params[6]
+get_default_beta() = default_neuron_params[7]
+get_default_bias() = default_neuron_params[8]
 
 
-const ϵ = 1e-8
+const ϵ = 1e-12
 
 # TODO: change Neurons to be a type alias on a Matrix with 8 rows and n cols.
 # this makes it easier to perform operations on Neurons like concatination
@@ -46,36 +84,61 @@ function Base.length(n::Neurons)::Int
     Base.length(n.Φ_init)
 end
 
-function set_defaults!(Φ_init=nothing, dΦ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias=nothing)
+function set_defaults!(;Φ_init=nothing, dΦ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias=nothing)
+    # if !isnothing(Φ_init)
+    #     _Φ_init = Φ_init
+    # end
+    # if !isnothing(dΦ_init)
+    #     _dΦ_init = dΦ_init
+    # end
+    # if !isnothing(sigma)
+    #     _sigma = sigma
+    # end
+    # if !isnothing(a)
+    #     _a = a
+    # end
+    # if !isnothing(we)
+    #     _we = we
+    # end
+    # if !isnothing(wex)
+    #     _wex = wex
+    # end
+    # if !isnothing(beta)
+    #     _beta = beta
+    # end
+    # if !isnothing(bias)
+    #     _bias = bias
+    # end
     if !isnothing(Φ_init)
-        _Φ_init = Φ_init
+        set_default_Φ_init!(Φ_init)
     end
     if !isnothing(dΦ_init)
-        _dΦ_init = dΦ_init
+        set_default_dΦ_init!(dΦ_init)
     end
     if !isnothing(sigma)
-        _sigma = sigma
+        set_default_sigma!(sigma)
     end
     if !isnothing(a)
-        _a = a
+        set_default_a!(a)
     end
     if !isnothing(we)
-        _we = we
+        set_default_we!(we)
     end
     if !isnothing(wex)
-        _wex = wex
+        set_default_wex!(wex)
     end
     if !isnothing(beta)
-        _beta = beta
+        set_default_beta!(beta)
     end
     if !isnothing(bias)
-        _bias = bias
+        set_default_bias!(bias)
     end
 end
 
 # neurons: the neurons struct that will be added to
 # n: number of neurons to add with the specified values
-function add_neurons!(neurons::Neurons, n::Int=1; Φ_init::Union{Float64, Nothing}=_Φ_init, dΦ_init=_dΦ_init, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=_bias)
+# function add_neurons!(neurons::Neurons, n::Int=1; Φ_init::Union{Float64, Nothing}=_Φ_init, dΦ_init=_dΦ_init, sigma=_sigma, a=_a, we=_we, wex=_wex, beta=_beta, bias=_bias)
+function add_neurons!(neurons::Neurons, n::Int=1; Φ_init::Union{Float64, Nothing}=get_default_Φ_init(), dΦ_init=get_default_dΦ_init(), sigma=get_default_sigma(), a=get_default_a(), we=get_default_we(), wex=get_default_wex(), beta=get_default_beta(), bias=get_default_bias())
     # if Φ_init is nothing, then initialize it to the resting position calculated from bias - ϵ (or + ϵ)
     # if there is no resting positon due to bias being higher than some threshold, then initialize it to zero i guess
     
@@ -87,12 +150,16 @@ function add_neurons!(neurons::Neurons, n::Int=1; Φ_init::Union{Float64, Nothin
     Φ_init_calculated = 0.0
     if isnothing(Φ_init)
         temp = 2*sigma * bias / we
+        # threshold_curr = we / (2*sigma)
         if -1 <= temp <= 1
+        # if abs(bias) <= abs(threshold_curr)
             Φ_init_calculated = (asin(temp)/2) - ϵ
         # else
         #     # TODO: calculate velocity here
         #     Φ_init_calculated = 0
         end
+    else
+        Φ_init_calculated = Φ_init
     end
 
     # concatinate new values onto neurons vectors
