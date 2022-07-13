@@ -3,7 +3,7 @@
 include("../afmneuronsim/includes.jl")
 
 
-set_defaults!(a=0.1, bias=0.000198)
+set_defaults!(a=0.01, bias=0.000198)
 k_zero = 0.011 / (_beta *_sigma)
 # k_zero = 0.009 / (_beta *_sigma)
 

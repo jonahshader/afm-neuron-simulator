@@ -415,6 +415,6 @@ function parameter_mask_view(root::Component)
         push!(param_views, view(raw(weights(c)), :, :))
         push!(mask_views, view(raw(weights_trainable_mask(c)), :, :))
     end
-
+    # TODO: use ArrayPartition instead of VectorOfArray
     (VectorOfArray(param_views), VectorOfArray(mask_views))
 end
