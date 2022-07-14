@@ -418,3 +418,16 @@ function parameter_mask_view(root::Component)
     # TODO: use ArrayPartition instead of VectorOfArray
     (VectorOfArray(param_views), VectorOfArray(mask_views))
 end
+
+function parameter_mask_array(root::Component)
+    param_views = Vector{SubArray{Float64, 2}}()
+    mask_views = Vector{SubArray{Bool, 2}}()
+
+    unique_components = unique(map_component_depth_first(x->x, root))
+    for c in unique_components
+        push!(param_views, view(raw(weights(c)), :, :))
+        push!(mask_views, view(raw(weights_trainable_mask(c)), :, :))
+    end
+    # TODO: use ArrayPartition instead of VectorOfArray
+    (VectorOfArray(param_views), VectorOfArray(mask_views))
+end

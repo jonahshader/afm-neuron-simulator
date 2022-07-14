@@ -2,6 +2,7 @@ using DifferentialEquations
 using Plots
 using Zygote
 using DiffEqSensitivity
+using LinearAlgebra
 
 function nn_test()
     tspan = (0.0, 1.0)
@@ -60,11 +61,11 @@ function nn_train_test()
         _sol = solve(_prob, Tsit5(), reltol=1e-6, abstol=1e-6, saveat=0.01, sensealg=QuadratureAdjoint())
         sum(((_sol .|> sin) - (_sol.t .|> sin)) .^ 2) / _sol.t.size
     end
-    for i in 1:15
-        dud01,dp1 = Zygote.gradient(mean_of_solution_squared, u0, )
+    # for i in 1:15
+    #     dud01,dp1 = Zygote.gradient(mean_of_solution_squared, u0, )
 end
 
-function circle_test()
+function circle_test(use_inplace::Bool=false)
     Θ = pi/2
     rotation_matrix = 
     [cos(Θ) -sin(Θ)
@@ -75,7 +76,13 @@ function circle_test()
     u0 = [1.0, 0.0]
     f(u,p,t) = p * u * velocity
     # prob = ODEProblem(f,u0,tspan)
-    prob = ODEProblem(f, u0, tspan, rotation_matrix)
+    # cache = rotation_matrix * u0 * velocity
+    function f_inplace!(du,u,p,t)
+        mul!(du, p, u)
+        du .*= velocity
+        nothing
+    end
+    prob = ODEProblem(if use_inplace f_inplace! else f end, u0, tspan, rotation_matrix)
     sol = solve(prob, Tsit5(),reltol=1e-6,abstol=1e-6)
     
     # plots = []
