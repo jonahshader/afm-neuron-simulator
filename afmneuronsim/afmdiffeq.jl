@@ -361,6 +361,32 @@ function plot_dΦ(parts::AFMModelParts, path::String, full_depth::Bool = false; 
 end
 
 """
+    plot_dΦ(parts::AFMModelParts, paths::Vector{String}, full_depth::Bool = false; args...)
+
+Plots dΦ of all neurons located at `paths` within the component tree. If `full_depth` is true, then all neurons located at `path` or deeper are plotted.
+`parts` must be solved with `solve_parts!` prior to plotting. The format of `path` is the same as is displayed with the regular `plot_dΦ` method.
+e.g. `plot_dΦ(parts, ["[xor1]", "[xor2]"], full_depth=true)` would plot dΦ of all neurons in the xor1 and xor2 components and below, whereas if full_depth=false, only neurons in the xor1 and xor2 components would be plotted.
+
+Additional args can be passed to the `plot` function.
+e.g. `plot_dΦ(parts, ["[xor1]", "[xor2]"], title="dΦ of all neurons in parts")`
+"""
+function plot_dΦ(parts::AFMModelParts, paths::Vector{String}, full_depth::Bool = false; args...)
+    neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
+    label = map(x->node_str(x), neuron_nodes)
+    first = length(label) + 1
+    indices = if full_depth
+        findall(x->max([is_subpath(p, x) for p in paths]...), label)
+    else
+        findall(x->max([is_immediate_subpath(p, x) for p in paths]...), label)
+    end
+
+    @assert !isempty(indices) "No neurons selected to plot!"
+    filtered_labels = label[indices]
+    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="dΦ"; args...)
+end
+
+
+"""
     plot_Φ(parts::AFMModelParts, path::String, full_depth::Bool = false; args...)
 
 Plots Φ of all neurons located at `path` within the component tree. If `full_depth` is true, then all neurons located at `path` or deeper are plotted.
@@ -379,6 +405,33 @@ function plot_Φ(parts::AFMModelParts, path::String, full_depth::Bool = false; a
         findall(x->is_subpath(path, x), label)
     else
         findall(x->is_immediate_subpath(path, x), label)
+    end
+
+    @assert !isempty(indices) "No neurons selected to plot!"
+    filtered_labels = label[indices]
+    plot(parts.sol, vars=hcat((indices .+first .- 1)...), label=reshape(filtered_labels, (1, length(filtered_labels))), yaxis="Φ"; args...)
+end
+
+    
+"""
+    plot_Φ(parts::AFMModelParts, paths::Vector{String}, full_depth::Bool = false; args...)
+
+Plots Φ of all neurons located at `paths` within the component tree. If `full_depth` is true, then all neurons located at `path` or deeper are plotted.
+`parts` must be solved with `solve_parts!` prior to plotting. The format of `path` is the same as is displayed with the regular `plot_Φ` method.
+e.g. `plot_Φ(parts, ["[xor1]", "[xor2]"], full_depth=true)` would plot Φ of all neurons in the xor1 and xor2 components and below, whereas if full_depth=false, only neurons in the xor1 and xor2 components would be plotted.
+
+Additional args can be passed to the `plot` function.
+e.g. `plot_Φ(parts, ["[xor1]", "[xor2]"], title="Φ of all neurons in parts")`
+"""
+function plot_Φ(parts::AFMModelParts, paths::Vector{String}, full_depth::Bool = false; args...)
+    neuron_nodes = filter(x->x.type == :neuron, nodes(reduced_graph(parts)))
+    label = map(x->node_str(x), neuron_nodes)
+    first = 1
+    
+    indices = if full_depth
+        findall(x->max([is_subpath(p, x) for p in paths]...), label)
+    else
+        findall(x->max([is_immediate_subpath(p, x) for p in paths]...), label)
     end
 
     @assert !isempty(indices) "No neurons selected to plot!"
