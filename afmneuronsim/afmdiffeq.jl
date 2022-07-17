@@ -161,6 +161,20 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
     # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
+function build_model_parts_simple(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
+    stype = if gpu Float32 else Float64 end
+    graph = Graph{stype}(root)
+    substitute_internal_io!(graph)
+    mats = raw.(reduced_graph_to_labeled_matrix(graph, sparse_, gpu))
+    u0 = build_u0(root, gpu)
+    neuron_params = build_neuron_params(root, gpu)
+
+    p = (neuron_params..., mats[1], mats[2], (input_functions...))
+    prob = ODEProblem(afm_diffeq_simplified, u0, tspan, p)
+
+    AFMModelParts{stype}(root, graph, mats[3], mats[4], tspan, u0, p, input_functions, prob, sparse_, gpu, nothing)
+end
+
 
 function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input_functions=nothing, new_sparse=nothing, new_gpu=nothing)
     if !isnothing(new_sparse)
@@ -288,7 +302,45 @@ function afm_diffeq!(du, u, p, t)
     nothing
 end
 
-# function make_simplified_equation
+# like afm_diffeq!, but not inplace and does not use temp arrays
+function afm_diffeq_simplified(du, u, p, t)
+    sigma, a, we, wex, beta, bias, nnm, inm, input_functions = p
+    Φ = view(u, :, 1)
+    dΦ = view(u, :, 2)
+    duΦ = view(du, :, 1)
+    dudΦ = view(du, :, 2)
+
+    duΦ .= dΦ
+
+
+
+    # return cat(
+    #     dΦ,
+    #     (sigma .* ((inm * (t .|> input_functions)) .+ (nnm * dΦ .* beta) .+ bias) - a .* dΦ - (we ./ 2) .* sin(2 .* Φ)) .* wex,
+    #     dims=1
+    # )
+
+    dudΦ .= (sigma .* ((inm * (t .|> input_functions)) .+ (nnm * dΦ .* beta) .+ bias) - a .* dΦ - (we ./ 2) .* sin.(2 .* Φ)) .* wex
+
+
+        # populate model_input_temp from list of functions of time
+        # model_input_temp = t .|> input_functions
+        # for i in eachindex(input_functions)
+        #     model_input_temp[i] = input_functions[i](t)
+        # end
+    
+        # model_input to neuron_input
+        # n_voltage_temp = dΦ .* beta # n_voltage_temp represents the voltage generated from the neurons
+        # n_arr_accum = inm * model_input_temp
+        # n_arr_temp2 = nnm * n_voltage_temp
+        # n_arr_accum .+= n_arr_temp2 # accumulate current
+    
+        # n_arr_accum .+= bias # add bias current
+    
+        # @. dudΦ = (sigma * n_arr_accum - a*dΦ - (we/2) * sin(2*Φ)) * wex
+    nothing
+
+end
 
 function build_neuron_labels(nodes::Vector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
