@@ -288,6 +288,8 @@ function afm_diffeq!(du, u, p, t)
     nothing
 end
 
+# function make_simplified_equation
+
 function build_neuron_labels(nodes::Vector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
     hcat(map(x->node_str(x), neuron_nodes)...)

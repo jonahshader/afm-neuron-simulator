@@ -89,7 +89,7 @@ function circle_test(use_inplace::Bool=false)
 
     function mean_of_solution_squared(u0, p)
         _prob = remake(prob,u0=u0,p=p)
-        _sol = solve(_prob,Tsit5(),reltol=1e-6,abstol=1e-6,saveat=0.01,sensealg=QuadratureAdjoint())
+        _sol = solve(_prob,Tsit5(),reltol=1e-6,abstol=1e-6,sensealg=QuadratureAdjoint())
         # plot!(_sol)
         sum(_sol .^ 2) / length(_sol)
     end
