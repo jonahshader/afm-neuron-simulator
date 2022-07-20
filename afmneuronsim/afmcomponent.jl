@@ -22,8 +22,8 @@ export output_labels
 export neuron_labels
 export component_labels
 
-export input
-export output
+export input_dΦ
+export output_dΦ
 export components
 export neurons
 export weights
@@ -126,8 +126,8 @@ neuron_labels(c::Component) = indices_with_labels(length(c.neurons), c.neuron_la
 component_labels(c::Component) = indices_with_labels(length(c.components), c.components.labels)
 
 # normal getters
-input(c::Component) = c.input
-output(c::Component) = c.output
+input_dΦ(c::Component) = c.input
+output_dΦ(c::Component) = c.output
 components(c::Component) = c.components
 neurons(c::Component) = c.neurons
 weights(c::Component) = c.weights
@@ -209,6 +209,12 @@ function set_weights!(c::Component, sources::Vector{Label}, destinations::Vector
             c.weights[destination, source] = weights[j, i]
         end
     end
+    nothing
+end
+
+function set_weights!(c::Component, weights::AbstractMatrix{Float64})
+    @assert size(weights) == size(raw(weights(c)))
+    set_raw!(weights(c), weights)
     nothing
 end
 

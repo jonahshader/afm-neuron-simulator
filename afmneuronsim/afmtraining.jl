@@ -1,6 +1,10 @@
 # include("afmcomponent.jl")
 # include("afmdiffeq.jl")
 
+export set_nonzeros_trainable!
+export train!
+export loss!
+
 mutable struct InstanceEval{T}
     params::T
     eval::Float64
@@ -18,9 +22,9 @@ function loss!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output::Ve
     total_loss / length(input)
 end
 
-function loss!(parts::AFMModelParts, single_input, single_target_output; peak_output=8e12)
+function loss!(parts::AFMModelParts, single_input, single_target_output; peak_output=9e11)
     rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input))
-    solve_parts!(parts)
+    solve_parts!(parts, dense=false)
     sum(((output_max(parts) ./ peak_output) .- single_target_output) .^ 2) / length(single_target_output)
 end
 

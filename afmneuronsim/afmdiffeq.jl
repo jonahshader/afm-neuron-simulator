@@ -27,8 +27,8 @@ export build_model_parts
 export rebuild_model_parts!
 export input_to_spikes
 export peak_output
-export input
-export output
+export input_dΦ
+export output_dΦ
 export output_max
 export output_binary
 export build_neuron_labels
@@ -238,22 +238,36 @@ function peak_output(parts::AFMModelParts, sol)
 
 end
 
-function input(parts::AFMModelParts)
+function input_dΦ(parts::AFMModelParts)
     # https://discourse.julialang.org/t/mapping-vector-of-functions-to-vector-of-numbers/20942
     transpose(sol(parts).t) .|> input_functions(parts)
 end
 
-function output(parts::AFMModelParts)
+# function input_Φ(parts::AFMModelParts)
+
+# end
+
+function output_dΦ(parts::AFMModelParts)
     # Φ_part = view(parts.sol, :, 1, :)
     dΦ_part = view(parts.sol, :, 2, :)
     # Φ_output = parts.nom * Φ_part
-    dΦ_output = (nom(parts) * dΦ_part) + (iom(parts) * input(parts))
+    (nom(parts) * dΦ_part) + (iom(parts) * input_dΦ(parts))
 
     # TODO: compute Φ of input functions?
 end
 
+"""
+    output_Φ(parts::AFMModelParts)
+
+Returns neuron-to-output matrix times neuron Φ. The input-to-output matrix is current ignored, as that would require the integrals of the input functions to be known or computed.
+"""
+function output_Φ(parts::AFMModelParts)
+    Φ_part = view(parts.sol, :, 1, :)
+    nom(parts) * Φ_part
+end
+
 function output_max(parts::AFMModelParts)
-    dΦ_output = output(parts)
+    dΦ_output = output_dΦ(parts)
     findmax(dΦ_output, dims = 2)[1][:]
 end
 
@@ -441,22 +455,22 @@ end
 
 function plot_output(parts::AFMModelParts, output_index::Int; args...)
     label = output_labels(root(parts))
-    plot(sol(parts).t, transpose(output(parts))[:, output_index], label=reshape(label, (1, length(label)))[output_index]; args...)
+    plot(sol(parts).t, transpose(output_dΦ(parts))[:, output_index], label=reshape(label, (1, length(label)))[output_index]; args...)
 end
 
 function plot_output(parts::AFMModelParts; args...)
     label = output_labels(root(parts))
-    plot(sol(parts).t, transpose(output(parts)), label=reshape(label, (1, length(label))); args...)
+    plot(sol(parts).t, transpose(output_dΦ(parts)), label=reshape(label, (1, length(label))); args...)
 end
 
 function plot_input(parts::AFMModelParts, input_index::Int; args...)
     label = input_labels(root(parts))
-    plot(sol(parts).t, transpose(input(parts))[:, input_index], label=reshape(label, (1, length(label)))[input_index]; args...)
+    plot(sol(parts).t, transpose(input_dΦ(parts))[:, input_index], label=reshape(label, (1, length(label)))[input_index]; args...)
 end
 
 function plot_input(parts::AFMModelParts; args...)
     label = input_labels(root(parts))
-    plot(sol(parts).t, transpose(input(parts)), label=reshape(label, (1, length(label))); args...)
+    plot(sol(parts).t, transpose(input_dΦ(parts)), label=reshape(label, (1, length(label))); args...)
 end
 
 function parameter_mask_view(root::Component)
