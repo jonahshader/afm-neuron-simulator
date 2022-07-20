@@ -74,6 +74,31 @@ function generate_loss_fun(batch_size, xtrain, ytrain)
     return custom_loss_fun!
 end
 
+
+function generate_better_loss_fun(batch_size, xtrain, ytrain)
+    inputs = Vector{Vector{Float64}}()
+    outputs = Vector{Vector{Float64}}()
+    for _ in 1:batch_size
+        selection = rand(1:size(ytrain)[1])
+        x = xtrain[:, selection]
+        y = ytrain[selection]
+        y = onehot(y, 0:9) * 1f0
+
+        push!(inputs, x * 1.0)
+        push!(inputs[end], 1.0) # add clock
+        push!(outputs, y * 1.0)
+    end
+
+    function custom_loss_fun!(parts::AFMModelParts)
+        return loss!(parts, inputs, outputs)
+    end
+
+    return custom_loss_fun!
+end
+
+# TODO: figure out a better way to handle loss functions.
+# probably need to decouple loss fun from training data.
+# require two functions: one is loss! and one is get_batch
 function run()
     model = make_model()
     parts = build_model_parts(model, (0.0, 6e-11), input_to_spikes(randn((28^2) + 1)))
