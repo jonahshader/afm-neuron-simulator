@@ -47,7 +47,7 @@ function make_model()
 
     mnist_classifier = Component(input_size, output_size)
     add_neurons!(mnist_classifier, 100)
-    init_component_weights!(mnist_classifier, 0.04, 0.02, 0.0, 1.0)
+    init_component_weights!(mnist_classifier, 0.04, 0.0, 0.0, 1.0)
     set_nonzeros_trainable!(mnist_classifier)
 
     mnist_classifier
@@ -96,19 +96,63 @@ function generate_better_loss_fun(batch_size, xtrain, ytrain)
     return custom_loss_fun!
 end
 
+function loss_fun_builder(xtrain, ytrain)
+    function custom_loss_fun(parts)
+        return loss!(parts, xtrain, ytrain)
+    end
+    return custom_loss_fun
+end
+
+function make_batch_gen(batch_size, xtrain, ytrain)
+    function batch_gen()
+        inputs = Vector{Vector{Float64}}()
+        outputs = Vector{Vector{Float64}}()
+        for _ in 1:batch_size
+            selection = rand(1:size(ytrain)[1])
+            x = xtrain[:, selection]
+            y = ytrain[selection]
+            y = onehot(y, 0:9) * 1f0
+    
+            push!(inputs, x * 1.0)
+            push!(inputs[end], 1.0) # add clock
+            push!(outputs, y * 1.0)
+        end
+    
+        return (inputs, outputs)
+    end
+    return batch_gen
+end
+
+
 # TODO: figure out a better way to handle loss functions.
 # probably need to decouple loss fun from training data.
 # require two functions: one is loss! and one is get_batch
+# function run()
+#     model = make_model()
+#     parts = build_model_parts(model, (0.0, 6e-11), input_to_spikes(randn((28^2) + 1)))
+
+#     xtrain, ytrain = MLDatasets.MNIST(:train)[:]
+#     xtrain = reshape(xtrain, 28^2, :)
+#     l_fun = generate_loss_fun(30, xtrain, ytrain)
+
+#     train!(parts, l_fun, 30, 10)
+#     (parts, l_fun)
+# end
+
 function run()
     model = make_model()
-    parts = build_model_parts(model, (0.0, 6e-11), input_to_spikes(randn((28^2) + 1)))
+    parts = build_model_parts(model, (0.0, 4e-11), input_to_spikes(randn((28^2) + 1)))
+
 
     xtrain, ytrain = MLDatasets.MNIST(:train)[:]
     xtrain = reshape(xtrain, 28^2, :)
-    l_fun = generate_loss_fun(30, xtrain, ytrain)
+    
+    batch_gen_fun = make_batch_gen(1, xtrain, ytrain)
 
-    train!(parts, l_fun, 30, 10)
-    (parts, l_fun)
+
+    train!(parts, loss_fun_builder, batch_gen_fun, 2, 200)
+    (parts, batch_gen_fun)
 end
 
 # using Revise; include("models/mnist_simple.jl"); (parts, l_fun) = run()
+# using Revise; include("models/mnist_simple.jl"); (parts, batch_gen_fun) = run()
