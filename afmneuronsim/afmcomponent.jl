@@ -303,11 +303,11 @@ function build_weights_matrix!(c::Component)
     set_labels!(c.weights_trainable_mask, dest, src)
 
     # re-apply old weights and trainable mask
-    # for p in nonzero_pairs(weights_old)
-    #     c.weights[p[1]...] = p[2]
-    # end
-    # for p in nonzero_pairs(weights_trainable_mask_old)
-    #     c.weights_trainable_mask[p[1]...] = p[2]
-    # end
+    for p in nonzero_pairs(weights_old)
+        c.weights[p[1]...] = p[2]
+    end
+    for p in nonzero_pairs(weights_trainable_mask_old)
+        c.weights_trainable_mask[p[1]...] = p[2]
+    end
     nothing
 end
