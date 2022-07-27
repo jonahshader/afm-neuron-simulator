@@ -24,6 +24,7 @@ export AFMModelParts
 export solve_parts!
 export input_to_spikes
 export build_model_parts
+export build_and_run
 export rebuild_model_parts!
 export input_to_spikes
 export peak_output
@@ -197,6 +198,12 @@ function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input
     set_ode_problem!(parts, prob)
     set_sol!(parts, nothing)
     nothing
+end
+
+function build_and_run(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
+    parts = build_model_parts(root, tspan, input_functions, sparse_, gpu)
+    solve_parts!(parts)
+    parts
 end
 
 function make_gaussian(a, b, c)
