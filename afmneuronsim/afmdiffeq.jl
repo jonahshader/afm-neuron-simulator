@@ -37,7 +37,7 @@ export plot_Φ
 export plot_dΦ
 export plot_output
 export plot_input
-export parameter_mask_view
+export weight_mask_view
 
 export root
 export reduced_graph
@@ -500,7 +500,7 @@ function plot_input(parts::AFMModelParts; args...)
     plot(sol(parts).t, transpose(input_dΦ(parts)), label=reshape(label, (1, length(label))); args...)
 end
 
-function parameter_mask_view(root::Component)
+function weight_mask_view(root::Component)
     param_views = Vector{SubArray{Float64, 2}}()
     mask_views = Vector{SubArray{Bool, 2}}()
 
@@ -512,3 +512,28 @@ function parameter_mask_view(root::Component)
 
     (VectorOfArray(param_views), VectorOfArray(mask_views))
 end
+
+# function neuron_mask_view(root::Component)
+#     param_views = Vector{SubArray{Float64, 2}}()
+#     mask_views = Vector{SubArray{Bool, 2}}()
+
+#     unique_components = unique(map_component_depth_first(x->x, root))
+#     for c in unique_components
+#         push!(param_views, view((neurons(c).a), :, :))
+#         push!(mask_views, view((neurons_trainable_mask(c)), :, :))
+#     end
+
+#     (VectorOfArray(param_views), VectorOfArray(mask_views))
+# end
+
+function neuron_dampening_view(root::Component)
+    param_views = Vector{SubArray{Float64, 1}}()
+
+    unique_components = unique(map_component_depth_first(x->x, root))
+    for c in unique_components
+        push!(param_views, view(neurons(c).a, :, :))
+    end
+
+    VectorOfArray(param_views)
+end
+
