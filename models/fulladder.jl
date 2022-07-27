@@ -48,6 +48,9 @@ set_weight!(xor, 2, ("or1", 2), 1.0)
 set_weight!(xor, ("and1", 1), 1, -1.0)
 set_weight!(xor, ("or1", 1), 1, 1.0)
 
+# adding a neuron here should no longer reset the weights
+add_neurons!(full_adder, 1)
+
 input_funs = input_to_spikes([1.0, 1.0, 1.0])
 ts = (0.0, 9e-11)
 parts = build_model_parts(full_adder, ts, input_funs)
