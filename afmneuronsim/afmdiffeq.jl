@@ -24,7 +24,7 @@ export AFMModelParts
 export solve_parts!
 export input_to_spikes
 export build_model_parts
-export build_and_run
+export build_and_solve
 export rebuild_model_parts!
 export input_to_spikes
 export peak_output
@@ -142,12 +142,16 @@ end
 
 build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
-function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
+function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false; custom_state=nothing)
     stype = if gpu Float32 else Float64 end
     graph = Graph{stype}(root)
     substitute_internal_io!(graph)
     mats = raw.(reduced_graph_to_labeled_matrix(graph, sparse_, gpu))
-    u0 = build_u0(root, gpu)
+    u0 = if isnothing(custom_state)
+        build_u0(root)
+    else
+         custom_state
+    end
     neuron_params = build_neuron_params(root, gpu)
     model_input_temp = similar(neuron_params[1], length(root.input))
     n_voltage_temp = similar(neuron_params[1])
@@ -200,11 +204,27 @@ function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input
     nothing
 end
 
-function build_and_run(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
+function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
     parts = build_model_parts(root, tspan, input_functions, sparse_, gpu)
     solve_parts!(parts)
-    parts
 end
+
+function continue!(parts::AFMModelParts, tspan, input_functions::Vector{Function}=nothing)
+    set_u0!(parts, sol(parts)[end])
+    set_tspan!(parts, tspan)
+    if !isnothing(input_functions)
+        set_input_functions!(parts, input_functions)
+    end
+    prob = ODEProblem(afm_diffeq!, u0(parts), tspan(parts), p(parts))
+    set_ode_problem!(parts, prob)
+    solve_parts!(parts)
+end
+
+# function build_and_continue(root::Component, parts::AFMModelParts, tspan, input_functions::Vector{Function}=Vector{Function}())
+#     new_parts = build_model_parts(root, tspan, input_functions, sparse_(parts), gpu(parts), custom_state=sol(parts)[end])
+#     solve_parts!(new_parts)
+#     new_parts
+# end
 
 function make_gaussian(a, b, c)
     function gaussian(t)

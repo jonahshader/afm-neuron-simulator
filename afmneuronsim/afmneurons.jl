@@ -85,30 +85,6 @@ function Base.length(n::Neurons)::Int
 end
 
 function set_defaults!(;Φ_init=nothing, dΦ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias=nothing)
-    # if !isnothing(Φ_init)
-    #     _Φ_init = Φ_init
-    # end
-    # if !isnothing(dΦ_init)
-    #     _dΦ_init = dΦ_init
-    # end
-    # if !isnothing(sigma)
-    #     _sigma = sigma
-    # end
-    # if !isnothing(a)
-    #     _a = a
-    # end
-    # if !isnothing(we)
-    #     _we = we
-    # end
-    # if !isnothing(wex)
-    #     _wex = wex
-    # end
-    # if !isnothing(beta)
-    #     _beta = beta
-    # end
-    # if !isnothing(bias)
-    #     _bias = bias
-    # end
     if !isnothing(Φ_init)
         set_default_Φ_init!(Φ_init)
     end
