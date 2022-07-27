@@ -207,6 +207,7 @@ end
 function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
     parts = build_model_parts(root, tspan, input_functions, sparse_, gpu)
     solve_parts!(parts)
+    parts
 end
 
 function continue!(parts::AFMModelParts, tspan, input_functions::Vector{Function}=nothing)
@@ -240,10 +241,18 @@ The result is the vector of functions which take in time and return current. The
 The spikes produced by this function are Gaussian. Properties of the spike can be specified by overriding the default values, which are
 `peak_current`, `spike_center`, and `spike_width`.
 """
-function input_to_spikes(inputs::Vector{Float64}, peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)::Vector{Function}
+function input_to_spikes(inputs::Vector{Float64}; peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)::Vector{Function}
     input_funs = Vector{Function}()
     for i in inputs
         push!(input_funs, make_gaussian(peak_current * i, spike_center, spike_width))
+    end
+    input_funs
+end
+
+function input_time_to_spikes(inputs::Vector{Float64}; peak_current=0.0001, spike_width=9e-13)::Vector{Function}
+    input_funs = Vector{Function}()
+    for i in inputs
+        push!(input_funs, make_gaussian(peak_current, i, spike_width))
     end
     input_funs
 end
@@ -531,7 +540,7 @@ function neuron_dampening_view(root::Component)
 
     unique_components = unique(map_component_depth_first(x->x, root))
     for c in unique_components
-        push!(param_views, view(neurons(c).a, :, :))
+        push!(param_views, view(neurons(c).a, :))
     end
 
     VectorOfArray(param_views)
