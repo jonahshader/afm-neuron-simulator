@@ -1,4 +1,5 @@
 using CUDA
+using RecursiveArrayTools
 
 export set_defaults!
 
@@ -177,4 +178,15 @@ function build_u0(root, gpu=false)
         dΦ_init = CuArray{Float32}(dΦ_init)
     end
     hcat(Φ_init, dΦ_init)
+end
+
+function unbuild_u0!(root, u0::Matrix)
+    Φ_init = view(u0, :, 1)
+    dΦ_init = view(u0, :, 2)
+    Φ_view_array = ArrayPartition(map_component_depth_first(x->view(x.neurons.Φ_init, :), root)...)
+    dΦ_view_array = ArrayPartition(map_component_depth_first(x->view(x.neurons.dΦ_init, :), root)...)
+
+    Φ_view_array .= Φ_init
+    dΦ_view_array .= dΦ_init
+    nothing
 end
