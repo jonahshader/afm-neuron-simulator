@@ -4,6 +4,8 @@ using SparseArrays
 using CUDA
 using CUDA.CUSPARSE
 
+const SPARSITY_THRESHOLD = 0.9
+
 function Graph{T}(comp::Component) where {T<:AbstractFloat}
     nodes = make_nodes(comp)
     weights = make_weights_from_component_tree(comp, nodes, T)
@@ -64,6 +66,8 @@ function substitute_internal_io!(graph::Graph)
     graph
 end
 
+sparsity(x) = Float64(count(iszero, x)) / length(x)
+
 # Populates a labeled weight matrix with the weights of the reduced graph
 function reduced_graph_to_labeled_matrix(graph::Graph, sparse_=true, gpu=false)
     
@@ -103,24 +107,44 @@ function reduced_graph_to_labeled_matrix(graph::Graph, sparse_=true, gpu=false)
         root_input_to_root_output_matrix[to(w), from(w)] += weight(w)
     end
 
-    if sparse_
+    if isnothing(sparse_)
+        if sparsity(neuron_to_neuron_matrix_raw) > SPARSITY_THRESHOLD
+            neuron_to_neuron_matrix_raw = sparse(neuron_to_neuron_matrix_raw)
+            dropzeros!(neuron_to_neuron_matrix_raw)
+            # println("nnm autodetected as sparse")
+        end
+        if sparsity(root_input_to_neuron_matrix_raw) > SPARSITY_THRESHOLD
+            root_input_to_neuron_matrix_raw = sparse(root_input_to_neuron_matrix_raw)
+            dropzeros!(root_input_to_neuron_matrix_raw)
+            # println("inm autodetected as sparse")
+        end
+        if sparsity(neuron_to_root_output_matrix_raw) > SPARSITY_THRESHOLD
+            neuron_to_root_output_matrix_raw = sparse(neuron_to_root_output_matrix_raw)
+            dropzeros!(neuron_to_root_output_matrix_raw)
+            # println("nom autodetected as sparse")
+        end
+        if sparsity(root_input_to_root_output_matrix_raw) > SPARSITY_THRESHOLD
+            root_input_to_root_output_matrix_raw = sparse(root_input_to_root_output_matrix_raw)
+            dropzeros!(root_input_to_root_output_matrix_raw)
+            # println("iom autodetected as sparse")
+        end
+    elseif sparse_
         neuron_to_neuron_matrix_raw = sparse(neuron_to_neuron_matrix_raw)
         root_input_to_neuron_matrix_raw = sparse(root_input_to_neuron_matrix_raw)
         neuron_to_root_output_matrix_raw = sparse(neuron_to_root_output_matrix_raw)
         root_input_to_root_output_matrix_raw = sparse(root_input_to_root_output_matrix_raw)
-        if gpu
-            neuron_to_neuron_matrix_raw = CuSparseMatrixCSC{Float32}(neuron_to_neuron_matrix_raw)
-            root_input_to_neuron_matrix_raw = CuSparseMatrixCSC{Float32}(root_input_to_neuron_matrix_raw)
-            neuron_to_root_output_matrix_raw = CuSparseMatrixCSC{Float32}(neuron_to_root_output_matrix_raw)
-            root_input_to_root_output_matrix_raw = CuSparseMatrixCSC{Float32}(root_input_to_root_output_matrix_raw)
-        end
-    else
-        if gpu
-            neuron_to_neuron_matrix_raw = CuMatrix{Float32}(neuron_to_neuron_matrix_raw)
-            root_input_to_neuron_matrix_raw = CuMatrix{Float32}(root_input_to_neuron_matrix_raw)
-            neuron_to_root_output_matrix_raw = CuMatrix{Float32}(neuron_to_root_output_matrix_raw)
-            root_input_to_root_output_matrix_raw = CuMatrix{Float32}(root_input_to_root_output_matrix_raw)
-        end
+
+        dropzeros!(neuron_to_neuron_matrix_raw)
+        dropzeros!(root_input_to_neuron_matrix_raw)
+        dropzeros!(neuron_to_root_output_matrix_raw)
+        dropzeros!(root_input_to_root_output_matrix_raw)
+    end
+
+    if gpu
+        neuron_to_neuron_matrix_raw = cu(neuron_to_neuron_matrix_raw)
+        root_input_to_neuron_matrix_raw = cu(root_input_to_neuron_matrix_raw)
+        neuron_to_root_output_matrix_raw = cu(neuron_to_root_output_matrix_raw)
+        root_input_to_root_output_matrix_raw = cu(root_input_to_root_output_matrix_raw)
     end
 
     # since these are references to the matrices, we need to reassign the raw matrices of the labeled matrices
@@ -203,3 +227,7 @@ function substitute_node!(graph::Graph, to_sub::Node)
     deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
     nothing
 end
+
+# Private method.
+# Same as above, but uses sets instead of vectors to achieve O(n) time instead of O(n^2) time.
+# function substitute_node!(weights::Set{Weight}, nodes::Set{Node}, to_sub::Node)

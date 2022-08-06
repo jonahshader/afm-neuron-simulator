@@ -1,9 +1,12 @@
 # include("afmcomponent.jl")
 # include("afmdiffeq.jl")
 
+using Flux.Losses: logitcrossentropy
+
 export set_nonzeros_trainable!
 export train!
-export loss!
+export loss_mse!
+export loss_logitcrossentropy!
 
 mutable struct InstanceEval{T}
     params::T
@@ -14,23 +17,50 @@ function set_nonzeros_trainable!(comp::Component)
     set_raw!(weights_trainable_mask(comp), raw(weights(comp)) .!= 0)
 end
 
-function loss!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output::Vector{Vector{T}}; args...) where {T<:AbstractFloat}
-    total_loss = 0.0
-    for io_pair in zip(input, target_output)
-        total_loss += loss!(parts, io_pair[1], io_pair[2], args...)
+function loss_mse!(parts::AFMModelParts, single_input, single_target_output; rebuild_model=true, peak_output=9e11, args...)
+    if rebuild_model
+        rebuild_model_parts!(parts, input_to_spikes(single_input), args...)
+    else
+        change_input_functions!(parts, input_to_spikes(single_input))
     end
-    total_loss / length(input)
-end
-
-function loss!(parts::AFMModelParts, single_input, single_target_output; peak_output=9e11)
-    rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input))
     solve_parts!(parts, dense=false)
     sum(((output_max(parts) ./ peak_output) .- single_target_output) .^ 2) / length(single_target_output)
 end
 
+function loss_mse!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output::Vector{Vector{T}}) where {T<:AbstractFloat}
+    total_loss = 0.0
+    full_rebuild = true
+    for io_pair in zip(input, target_output)
+        total_loss += loss_mse!(parts, io_pair[1], io_pair[2]; rebuild_model=full_rebuild)
+        full_rebuild = false
+    end
+    total_loss / length(input)
+end
+
+function loss_logitcrossentropy!(parts::AFMModelParts, single_input, single_target_output, peak_output=9e11; rebuild_model=true)
+    if rebuild_model
+        rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input))
+    else
+        change_input_functions!(parts, input_to_spikes(single_input))
+    end
+    solve_parts!(parts, dense=false)
+    logitcrossentropy(output_max(parts) ./ peak_output, single_target_output)
+end
+
+function loss_logitcrossentropy!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output::Vector{Vector{T}}) where {T<:AbstractFloat}
+    total_loss = 0.0
+    # TODO: parallelize
+    full_rebuild = true
+    for io_pair in zip(input, target_output)
+        total_loss += loss_logitcrossentropy!(parts, io_pair[1], io_pair[2], rebuild_model=full_rebuild)
+        full_rebuild = false 
+    end
+    total_loss / length(input)
+end
+
 # TODO: docs. this train!'s loss_fun takes in parts and returns loss
 # below is a version that takes in a loss_fun_builder and a batch_fun
-function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, iterations::Int, a=0.01, m=nothing, v=nothing)
+function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, iterations::Int; a=0.01, sd=0.01, m=nothing, v=nothing)
     init_params, mask = parameter_mask_view(root(parts))
     zero = deepcopy(init_params)
     zero .-= zero
@@ -49,14 +79,14 @@ function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, 
     vh = deepcopy(v)
 
     for i in 1:population_size
-        push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, 0.01), 0.0))
+        push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, sd), 0.0))
     end
 
     for i in 1:iterations
         println("Iteration: ", i)
         # mutate
         for p in population
-            mutate!(p.params, mask, 0.01)
+            mutate!(p.params, mask, sd)
         end
 
         # evaluate
@@ -97,7 +127,7 @@ end
 
 # loss_fun_builder takes in a batch and returns a function that takes in parts and returns loss
 # batch_generator takes in nothing and returns a tuple (xtrain, ytrain)
-function train!(parts::AFMModelParts, loss_fun_builder::Function, batch_generator::Function, population_size::Int, iterations::Int, a=0.01, m=nothing, v=nothing)
+function train!(parts::AFMModelParts, loss_fun_builder::Function, batch_generator::Function, population_size::Int, iterations::Int; a=0.01, sd=0.01, m=nothing, v=nothing)
     init_params, mask = parameter_mask_view(root(parts))
     zero = deepcopy(init_params)
     zero .-= zero
@@ -116,14 +146,14 @@ function train!(parts::AFMModelParts, loss_fun_builder::Function, batch_generato
     vh = deepcopy(v)
 
     for i in 1:population_size
-        push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, 0.01), 0.0))
+        push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, sd), 0.0))
     end
 
     for i in 1:iterations
         println("Iteration: ", i)
         # mutate
         for p in population
-            mutate!(p.params, mask, 0.01)
+            mutate!(p.params, mask, sd)
         end
 
         # evaluate
@@ -169,6 +199,7 @@ end
 function evaluate_all!(parts::AFMModelParts, init_params, population, loss_fun)
     for p in population
         evaluate!(parts, init_params, p, loss_fun)
+        print(".")
     end
     nothing
 end

@@ -26,6 +26,7 @@ export input_to_spikes
 export build_model_parts
 export build_and_solve
 export rebuild_model_parts!
+export change_input_functions!
 export input_to_spikes
 export peak_output
 export input_dΦ
@@ -71,7 +72,7 @@ mutable struct AFMModelParts{T<:AbstractFloat}
     p::Tuple
     input_functions::Vector{Function}
     ode_problem::ODEProblem
-    sparse_::Bool
+    sparse_::Union{Bool, Nothing}
     gpu::Bool
     sol::Union{SciMLBase.AbstractODESolution, Nothing}
 end
@@ -142,7 +143,7 @@ end
 
 build_u0(parts::AFMModelParts) = build_u0(root(parts))
 
-function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false; custom_state=nothing)
+function build_model_parts(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(); sparse_=nothing, gpu=false, custom_state=nothing)
     stype = if gpu Float32 else Float64 end
     graph = Graph{stype}(root)
     substitute_internal_io!(graph)
@@ -167,7 +168,7 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
 end
 
 
-function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input_functions=nothing, new_sparse=nothing, new_gpu=nothing)
+function rebuild_model_parts!(parts::AFMModelParts; model_changed=true, new_tspan=nothing, new_input_functions=nothing, new_sparse=nothing, new_gpu=nothing)
     if !isnothing(new_sparse)
         set_sparse_!(parts, new_sparse)
     end
@@ -181,28 +182,44 @@ function rebuild_model_parts!(parts::AFMModelParts; new_tspan=nothing, new_input
         set_input_functions!(parts, new_input_functions)
     end
     stype = if gpu(parts) Float32 else Float64 end
-    graph = Graph{stype}(root(parts))
-    substitute_internal_io!(graph)
-    mats = raw.(reduced_graph_to_labeled_matrix(graph, sparse_(parts), gpu(parts)))
-    u0 = build_u0(root(parts), gpu(parts))
-    neuron_params = build_neuron_params(root(parts), gpu(parts))
-    model_input_temp = similar(neuron_params[1], length(root(parts).input))
-    n_voltage_temp = similar(neuron_params[1])
-    n_arr_temp2 = similar(neuron_params[1])
-    n_arr_accum = similar(neuron_params[1])
+    prob = if model_changed
+        graph = Graph{stype}(root(parts))
+        substitute_internal_io!(graph)
+        set_reduced_graph!(parts, graph)
+        mats = raw.(reduced_graph_to_labeled_matrix(graph, sparse_(parts), gpu(parts)))
+        set_nom!(parts, mats[3])
+        set_iom!(parts, mats[4])
+        parts.u0 = build_u0(root(parts), gpu(parts))
+        neuron_params = build_neuron_params(root(parts), gpu(parts))
+        model_input_temp = similar(neuron_params[1], length(root(parts).input))
+        n_voltage_temp = similar(neuron_params[1])
+        n_arr_temp2 = similar(neuron_params[1])
+        n_arr_accum = similar(neuron_params[1])
+    
+        parts.p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, (input_functions(parts)...,))
 
-    p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, (input_functions(parts)...,))
-    prob = ODEProblem(afm_diffeq!, u0, tspan(parts), p)
+        ODEProblem(afm_diffeq!, u0(parts), tspan(parts), parts.p)
+    else
+        parts.p = (parts.p[1:end-1]..., (input_functions(parts)...,))
+        ODEProblem(afm_diffeq!, u0(parts), tspan(parts), parts.p)
+    end
 
-    set_reduced_graph!(parts, graph)
-    set_nom!(parts, mats[3])
-    set_iom!(parts, mats[4])
-    set_u0!(parts, u0)
-    set_p!(parts, p)
+    # set_u0!(parts, u0)
+    # set_p!(parts, p)
     set_ode_problem!(parts, prob)
     set_sol!(parts, nothing)
     nothing
 end
+
+function change_input_functions!(parts::AFMModelParts, new_input_functions)
+    set_input_functions!(parts, new_input_functions)
+    parts.p = (parts.p[1:end-1]..., (input_functions(parts)...,))
+    set_ode_problem!(parts, ODEProblem(afm_diffeq!, u0(parts), tspan(parts), parts.p))
+    set_sol!(parts, nothing)
+    nothing
+end
+
+
 
 function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
     parts = build_model_parts(root, tspan, input_functions, sparse_, gpu)
