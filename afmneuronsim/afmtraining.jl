@@ -61,7 +61,7 @@ end
 # TODO: docs. this train!'s loss_fun takes in parts and returns loss
 # below is a version that takes in a loss_fun_builder and a batch_fun
 function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, iterations::Int; a=0.01, sd=0.01, m=nothing, v=nothing)
-    init_params, mask = parameter_mask_view(root(parts))
+    init_params, mask = weight_mask_view(root(parts))
     zero = deepcopy(init_params)
     zero .-= zero
 
@@ -128,7 +128,7 @@ end
 # loss_fun_builder takes in a batch and returns a function that takes in parts and returns loss
 # batch_generator takes in nothing and returns a tuple (xtrain, ytrain)
 function train!(parts::AFMModelParts, loss_fun_builder::Function, batch_generator::Function, population_size::Int, iterations::Int; a=0.01, sd=0.01, m=nothing, v=nothing)
-    init_params, mask = parameter_mask_view(root(parts))
+    init_params, mask = weight_mask_view(root(parts))
     zero = deepcopy(init_params)
     zero .-= zero
 

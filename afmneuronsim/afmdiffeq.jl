@@ -38,7 +38,7 @@ export plot_Φ
 export plot_dΦ
 export plot_output
 export plot_input
-export parameter_mask_view
+export weight_mask_view
 
 export root
 export reduced_graph
@@ -167,7 +167,6 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
     # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
-
 function rebuild_model_parts!(parts::AFMModelParts; model_changed=true, new_tspan=nothing, new_input_functions=nothing, new_sparse=nothing, new_gpu=nothing)
     if !isnothing(new_sparse)
         set_sparse_!(parts, new_sparse)
@@ -221,20 +220,26 @@ end
 
 
 
+function update_component_state!(parts::AFMModelParts)
+    unbuild_u0!(root(parts), sol(parts)[end])
+    nothing
+end
+
 function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
     parts = build_model_parts(root, tspan, input_functions, sparse_, gpu)
     solve_parts!(parts)
+    parts
 end
 
-function continue!(parts::AFMModelParts, tspan, input_functions::Vector{Function}=nothing)
-    set_u0!(parts, sol(parts)[end])
-    set_tspan!(parts, tspan)
+function continue!(pts::AFMModelParts, _tspan, input_functions::Vector{Function}=nothing)
+    set_u0!(pts, sol(pts)[end])
+    set_tspan!(pts, _tspan)
     if !isnothing(input_functions)
-        set_input_functions!(parts, input_functions)
+        set_input_functions!(pts, input_functions)
     end
-    prob = ODEProblem(afm_diffeq!, u0(parts), tspan(parts), p(parts))
-    set_ode_problem!(parts, prob)
-    solve_parts!(parts)
+    prob = ODEProblem(afm_diffeq!, u0(pts), tspan(pts), p(pts))
+    set_ode_problem!(pts, prob)
+    solve_parts!(pts)
 end
 
 # function build_and_continue(root::Component, parts::AFMModelParts, tspan, input_functions::Vector{Function}=Vector{Function}())
@@ -257,10 +262,18 @@ The result is the vector of functions which take in time and return current. The
 The spikes produced by this function are Gaussian. Properties of the spike can be specified by overriding the default values, which are
 `peak_current`, `spike_center`, and `spike_width`.
 """
-function input_to_spikes(inputs::Vector{Float64}, peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)::Vector{Function}
+function input_to_spikes(inputs::Vector{Float64}; peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)::Vector{Function}
     input_funs = Vector{Function}()
     for i in inputs
         push!(input_funs, make_gaussian(peak_current * i, spike_center, spike_width))
+    end
+    input_funs
+end
+
+function input_time_to_spikes(inputs::Vector{Float64}; peak_current=0.0001, spike_width=9e-13)::Vector{Function}
+    input_funs = Vector{Function}()
+    for i in inputs
+        push!(input_funs, make_gaussian(peak_current, i, spike_width))
     end
     input_funs
 end
@@ -517,7 +530,7 @@ function plot_input(parts::AFMModelParts; args...)
     plot(sol(parts).t, transpose(input_dΦ(parts)), label=reshape(label, (1, length(label))); args...)
 end
 
-function parameter_mask_view(root::Component)
+function weight_mask_view(root::Component)
     param_views = Vector{SubArray{Float64, 2}}()
     mask_views = Vector{SubArray{Bool, 2}}()
 
@@ -529,3 +542,28 @@ function parameter_mask_view(root::Component)
 
     (VectorOfArray(param_views), VectorOfArray(mask_views))
 end
+
+# function neuron_mask_view(root::Component)
+#     param_views = Vector{SubArray{Float64, 2}}()
+#     mask_views = Vector{SubArray{Bool, 2}}()
+
+#     unique_components = unique(map_component_depth_first(x->x, root))
+#     for c in unique_components
+#         push!(param_views, view((neurons(c).a), :, :))
+#         push!(mask_views, view((neurons_trainable_mask(c)), :, :))
+#     end
+
+#     (VectorOfArray(param_views), VectorOfArray(mask_views))
+# end
+
+function neuron_dampening_view(root::Component)
+    param_views = Vector{SubArray{Float64, 1}}()
+
+    unique_components = unique(map_component_depth_first(x->x, root))
+    for c in unique_components
+        push!(param_views, view(neurons(c).a, :))
+    end
+
+    VectorOfArray(param_views)
+end
+
