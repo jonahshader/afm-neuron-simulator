@@ -14,24 +14,32 @@ end
 
 # Top level function to create all nodes from a component tree
 function make_nodes(comp::Component)
-    root_inputs = Vector{Node}()
-    root_outputs = Vector{Node}()
+    root_inputs = Dict{Node, Node}()
+    root_outputs = Dict{Node, Node}()
+    # root_inputs = Vector{Node}()
+    # root_outputs = Vector{Node}()
 
     for input in input_labels(comp)
-        push!(root_inputs, Node(Path(), input, :root_input))
+        new_node = Node(Path(), input, :root_input)
+        root_inputs[new_node] = new_node
+        # push!(root_inputs, Node(Path(), input, :root_input))
     end
 
     for output in output_labels(comp)
-        push!(root_outputs, Node(Path(), output, :root_output))
+        new_node = Node(Path(), output, :root_output)
+        root_outputs[new_node] = new_node
+        # push!(root_outputs, Node(Path(), output, :root_output))
     end
 
     nodes = make_all_qualified_nodes_sublevel(comp, Path())
 
-    vcat(root_inputs, root_outputs, nodes)
+    # vcat(root_inputs, root_outputs, nodes)
+    merge(root_inputs, root_outputs, nodes)
 end
 
 # Top level function for creating weights from a component tree and nodes
-function make_weights_from_component_tree(root::Component, nodes::Vector{Node}, T::DataType)
+# nodes can be dict or vector
+function make_weights_from_component_tree(root::Component, nodes, T::DataType)
     make_weights_sublevel(root, nodes, Path(), T, true)
 end
 
@@ -59,7 +67,7 @@ end
 
 # Top level function for substituting all internal io nodes in the graph
 function substitute_internal_io!(graph::Graph)
-    to_subs = filter(x->(type(x) == :input || type(x) == :output), nodes(graph))
+    to_subs = filter(x->(type(x) == :input || type(x) == :output), keys(nodes(graph)))
     for to_sub in to_subs
         substitute_node!(graph, to_sub)
     end
@@ -158,36 +166,50 @@ end
 
 # Private method for recursively creating nodes from a component tree, excluding the top level
 function make_all_qualified_nodes_sublevel(comp::Component, current_path::Path)
-    nodes = Vector{Node}()
+    nodes = Dict{Node, Node}()
+    # nodes = Vector{Node}()
     # add inputs, outputs, and neurons as nodes, with current_path
     # call this function for every component, and append that component's name to current_path
 
     # nodes = vcat(nodes, input_nodes, output_nodes) # this is in the wrong spot
     for neuron in neuron_labels(comp)
-        push!(nodes, Node(copy(current_path), neuron, :neuron))
+        new_node = Node(copy(current_path), neuron, :neuron)
+        nodes[new_node] = new_node
+        # push!(nodes, Node(copy(current_path), neuron, :neuron))
     end
 
     for clabel in component_labels(comp)
         c = comp[clabel]
-        comp_input_nodes = Vector{Node}()
-        comp_output_nodes = Vector{Node}()
+        comp_input_nodes = Dict{Node, Node}()
+        comp_output_nodes = Dict{Node, Node}()
+        # comp_input_nodes = Vector{Node}()
+        # comp_output_nodes = Vector{Node}()
         for input in input_labels(c)
-            push!(comp_input_nodes, Node(vcat(copy(current_path), clabel), input, :input))
+            new_node = Node(vcat(copy(current_path), clabel), input, :input)
+            comp_input_nodes[new_node] = new_node
+            # push!(comp_input_nodes, Node(vcat(copy(current_path), clabel), input, :input))
         end
         for output in output_labels(c)
-            push!(comp_output_nodes, Node(vcat(copy(current_path), clabel), output, :output))
+            new_node = Node(vcat(copy(current_path), clabel), output, :output)
+            comp_output_nodes[new_node] = new_node
+            # push!(comp_output_nodes, Node(vcat(copy(current_path), clabel), output, :output))
         end
-        nodes = vcat(nodes, comp_input_nodes, comp_output_nodes)
+        # nodes = vcat(nodes, comp_input_nodes, comp_output_nodes)
+        # nodes = merge(nodes, comp_input_nodes, comp_output_nodes)
+        merge!(nodes, comp_input_nodes, comp_output_nodes)
         next_qualified_nodes = make_all_qualified_nodes_sublevel(c, vcat(current_path, clabel))
 
-        nodes = vcat(nodes, next_qualified_nodes)
+        # nodes = vcat(nodes, next_qualified_nodes)
+        # nodes = merge(nodes, next_qualified_nodes)
+        merge!(nodes, next_qualified_nodes)
     end
 
     nodes
 end
 
 # Private method for recursively creating weights from a component tree, excluding the top level
-function make_weights_sublevel(comp::Component, nodes::Vector{Node}, current_path::Path, T::DataType, is_root::Bool=false)
+# nodes can be dict or vector
+function make_weights_sublevel(comp::Component, nodes, current_path::Path, T::DataType, is_root::Bool=false)
     weight_list = Vector{Weight{T}}()
     for p in nonzero_pairs(weights(comp))
         dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
@@ -201,10 +223,43 @@ function make_weights_sublevel(comp::Component, nodes::Vector{Node}, current_pat
     weight_list
 end
 
+# # Private method.
+# # Given the node to_sub, all incoming and outgoing weights will be replaced 
+# # by the product of each incoming weight times each outgoing weight.
+# # The resulting weight configuration is equivalent.
+# function substitute_node!(graph::Graph, to_sub::Node)
+    
+#     incoming = incoming_weights(weights(graph), to_sub)
+#     outgoing = outgoing_weights(weights(graph), to_sub)
+
+#     for i in incoming
+#         for o in outgoing
+#             @assert from(i) != to(i)
+#             push!(weights(graph), Weight(weight(i) * weight(o), from(i), to(o)))
+#         end
+#     end
+
+#     for i in incoming
+#         deleteat!(weights(graph), findall(x->x == i, weights(graph)))
+#     end
+#     for o in outgoing
+#         deleteat!(weights(graph), findall(x->x == o, weights(graph)))
+#     end
+
+#     deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
+#     nothing
+# end
+
 # Private method.
-# Given the node to_sub, all incoming and outgoing weights will be replaced 
-# by the product of each incoming weight times each outgoing weight.
-# The resulting weight configuration is equivalent.
+# Same as above, but uses sets instead of vectors to achieve O(n) time instead of O(n^2) time.
+# function substitute_node!(weights::Set{Weight}, nodes::Set{Node}, to_sub::Node)
+
+
+# TODO: this method will require two dicts: one that maps node to outgoing weights, and one that maps node to incoming weights.
+# first create a mapping from each node to an empty vector of weights
+# iterate through each weight and check if its source is equal to the node. if it is, add the weight to the vector of weights
+# same can be done for dict that maps node to outgoing weights
+# this will be done in linear time! :D
 function substitute_node!(graph::Graph, to_sub::Node)
     
     incoming = incoming_weights(weights(graph), to_sub)
@@ -227,7 +282,3 @@ function substitute_node!(graph::Graph, to_sub::Node)
     deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
     nothing
 end
-
-# Private method.
-# Same as above, but uses sets instead of vectors to achieve O(n) time instead of O(n^2) time.
-# function substitute_node!(weights::Set{Weight}, nodes::Set{Node}, to_sub::Node)

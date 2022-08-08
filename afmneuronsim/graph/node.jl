@@ -59,3 +59,12 @@ function get_node_from_label(nodes::Vector{Node}, label::Label, source::Bool, pa
     target_node # this is just to make the compiler happy
 end
 
+function get_node_from_label(nodes::Dict{Node, Node}, label::Label, source::Bool, path::Path, is_root::Bool=false)
+    target_node = label_to_node(label, source, path, is_root)
+    try
+        return nodes[target_node]
+    catch
+        error("Could not find node $target_node from the nodes $nodes")
+    end
+    target_node # this is just to make the compiler happy
+end
