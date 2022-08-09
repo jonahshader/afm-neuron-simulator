@@ -68,17 +68,19 @@ end
 # Top level function for substituting all internal io nodes in the graph
 function substitute_internal_io!(graph::Graph)
     # create node to incoming weights and node to outgoing weights dicts
-    node_to_incoming_weights = Dict{Node, Vector{Weight{T}}}()
-    node_to_outgoing_weights = Dict{Node, Vector{Weight{T}}}()
-    for weight in weights(graph)
-        if !(from(weight) in node_to_outgoing_weights)
-            node_to_outgoing_weights[from(weight)] = Vector{Weight{T}}()
+    node_to_incoming_weights = Dict{Node, Vector{Weight{Float64}}}()
+    node_to_outgoing_weights = Dict{Node, Vector{Weight{Float64}}}()
+    for weight in values(weights(graph))
+        # if !(from(weight) in node_to_outgoing_weights)
+        if !haskey(node_to_outgoing_weights, from(weight))
+            node_to_outgoing_weights[from(weight)] = Vector{Weight{Float64}}()
         end
 
         push!(node_to_outgoing_weights[from(weight)], weight)
 
-        if !(to(weight) in node_to_incoming_weights)
-            node_to_incoming_weights[to(weight)] = Vector{Weight{T}}()
+        # if !(to(weight) in node_to_incoming_weights)
+        if !haskey(node_to_incoming_weights, to(weight))
+            node_to_incoming_weights[to(weight)] = Vector{Weight{Float64}}()
         end
 
         push!(node_to_incoming_weights[to(weight)], weight)
@@ -243,7 +245,8 @@ function make_weights_sublevel(comp::Component, nodes, current_path::Path, T::Da
         # weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
         merge!(weight_dict, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
     end
-    weight_list
+    # weight_list
+    weight_dict
 end
 
 # # Private method.
