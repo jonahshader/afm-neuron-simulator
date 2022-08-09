@@ -67,9 +67,26 @@ end
 
 # Top level function for substituting all internal io nodes in the graph
 function substitute_internal_io!(graph::Graph)
+    # create node to incoming weights and node to outgoing weights dicts
+    node_to_incoming_weights = Dict{Node, Vector{Weight{T}}}()
+    node_to_outgoing_weights = Dict{Node, Vector{Weight{T}}}()
+    for weight in weights(graph)
+        if !(from(weight) in node_to_outgoing_weights)
+            node_to_outgoing_weights[from(weight)] = Vector{Weight{T}}()
+        end
+
+        push!(node_to_outgoing_weights[from(weight)], weight)
+
+        if !(to(weight) in node_to_incoming_weights)
+            node_to_incoming_weights[to(weight)] = Vector{Weight{T}}()
+        end
+
+        push!(node_to_incoming_weights[to(weight)], weight)
+    end
+
     to_subs = filter(x->(type(x) == :input || type(x) == :output), keys(nodes(graph)))
     for to_sub in to_subs
-        substitute_node!(graph, to_sub)
+        substitute_node!(graph, to_sub, node_to_outgoing_weights, node_to_incoming_weights)
     end
     graph
 end
@@ -78,10 +95,12 @@ sparsity(x) = Float64(count(iszero, x)) / length(x)
 
 # Populates a labeled weight matrix with the weights of the reduced graph
 function reduced_graph_to_labeled_matrix(graph::Graph, sparse_=true, gpu=false)
+    node_vec = [x for x in values(nodes(graph))]
+    weights_vec = [x for x in values(weights(graph))]
     
-    neuron_nodes = filter(x->type(x) == :neuron, nodes(graph))
-    root_input_nodes = filter(x->type(x) == :root_input, nodes(graph))
-    root_output_nodes = filter(x->type(x) == :root_output, nodes(graph))
+    neuron_nodes = filter(x->type(x) == :neuron, node_vec)
+    root_input_nodes = filter(x->type(x) == :root_input, node_vec)
+    root_output_nodes = filter(x->type(x) == :root_output, node_vec)
 
     neuron_to_neuron_matrix_raw = zeros(Float64, length(neuron_nodes), length(neuron_nodes))
     root_input_to_neuron_matrix_raw = zeros(Float64, length(neuron_nodes), length(root_input_nodes))
@@ -98,19 +117,19 @@ function reduced_graph_to_labeled_matrix(graph::Graph, sparse_=true, gpu=false)
     set_labels!(neuron_to_root_output_matrix, root_output_nodes, neuron_nodes)
     set_labels!(root_input_to_root_output_matrix, root_output_nodes, root_input_nodes)
 
-    n_to_n_weights = filter(x->(type(from(x)) == :neuron && type(to(x)) == :neuron), weights(graph))
+    n_to_n_weights = filter(x->(type(from(x)) == :neuron && type(to(x)) == :neuron), weights_vec)
     for w in n_to_n_weights
         neuron_to_neuron_matrix[to(w), from(w)] += weight(w)
     end
-    root_input_to_n_weights = filter(x->(type(from(x)) == :root_input && type(to(x)) == :neuron), weights(graph))
+    root_input_to_n_weights = filter(x->(type(from(x)) == :root_input && type(to(x)) == :neuron), weights_vec)
     for w in root_input_to_n_weights
         root_input_to_neuron_matrix[to(w), from(w)] += weight(w)
     end
-    n_to_root_output_weights = filter(x->(type(from(x)) == :neuron && type(to(x)) == :root_output), weights(graph))
+    n_to_root_output_weights = filter(x->(type(from(x)) == :neuron && type(to(x)) == :root_output), weights_vec)
     for w in n_to_root_output_weights
         neuron_to_root_output_matrix[to(w), from(w)] += weight(w)
     end
-    root_input_to_root_output_weights = filter(x->(type(from(x)) == :root_input && type(to(x)) == :root_output), weights(graph))
+    root_input_to_root_output_weights = filter(x->(type(from(x)) == :root_input && type(to(x)) == :root_output), weights_vec)
     for w in root_input_to_root_output_weights
         root_input_to_root_output_matrix[to(w), from(w)] += weight(w)
     end
@@ -210,15 +229,19 @@ end
 # Private method for recursively creating weights from a component tree, excluding the top level
 # nodes can be dict or vector
 function make_weights_sublevel(comp::Component, nodes, current_path::Path, T::DataType, is_root::Bool=false)
-    weight_list = Vector{Weight{T}}()
+    # weight_list = Vector{Weight{T}}()
+    weight_dict = Dict{Weight{T}, Weight{T}}()
     for p in nonzero_pairs(weights(comp))
         dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
         src_node = get_node_from_label(nodes, p[1][2], true, current_path, is_root)
-        push!(weight_list, Weight(convert(T, p[2]), src_node, dest_node))
+        # push!(weight_list, Weight(convert(T, p[2]), src_node, dest_node))
+        new_weight = Weight(convert(T, p[2]), src_node, dest_node)
+        weight_dict[new_weight] = new_weight
     end
     for clabel in component_labels(comp)
         c = comp[clabel]
-        weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
+        # weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
+        merge!(weight_dict, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
     end
     weight_list
 end
@@ -260,25 +283,40 @@ end
 # iterate through each weight and check if its source is equal to the node. if it is, add the weight to the vector of weights
 # same can be done for dict that maps node to outgoing weights
 # this will be done in linear time! :D
-function substitute_node!(graph::Graph, to_sub::Node)
+function substitute_node!(graph::Graph, to_sub::Node, node_to_outgoing_weights::Dict{Node, Vector{Weight}}, node_to_incoming_weights::Dict{Node, Vector{Weight}})
     
-    incoming = incoming_weights(weights(graph), to_sub)
-    outgoing = outgoing_weights(weights(graph), to_sub)
+    # incoming = incoming_weights(weights(graph), to_sub)
+    # outgoing = outgoing_weights(weights(graph), to_sub)
+    incoming = node_to_incoming_weights[to_sub]
+    outgoing = node_to_outgoing_weights[to_sub]
 
     for i in incoming
         for o in outgoing
             @assert from(i) != to(i)
-            push!(weights(graph), Weight(weight(i) * weight(o), from(i), to(o)))
+            # push!(weights(graph), Weight(weight(i) * weight(o), from(i), to(o)))
+            new_weight = Weight(weight(i) * weight(o), from(i), to(o))
+            weights(graph)[new_weight] = new_weight
+            # populate node_to_outgoing_weights and node_to_incoming_weights
+            push!(node_to_outgoing_weights[from(i)], new_weight)
+            push!(node_to_incoming_weights[to(o)], new_weight)
+
         end
     end
 
     for i in incoming
-        deleteat!(weights(graph), findall(x->x == i, weights(graph)))
+        # deleteat!(weights(graph), findall(x->x == i, weights(graph)))
+        delete!(weights(graph), i)
     end
     for o in outgoing
-        deleteat!(weights(graph), findall(x->x == o, weights(graph)))
+        # deleteat!(weights(graph), findall(x->x == o, weights(graph)))
+        delete!(weights(graph), o)
     end
 
-    deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
+    delete!(nodes(graph), to_sub)
+    delete!(node_to_outgoing_weights, to_sub)
+    delete!(node_to_incoming_weights, to_sub)
+
+    # deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
     nothing
 end
+
