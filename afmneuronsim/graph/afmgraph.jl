@@ -5,8 +5,10 @@ using LinearAlgebra
 using SparseArrays
 
 mutable struct Graph{T<:AbstractFloat}
-    nodes::Vector{Node}
-    weights::Vector{Weight{T}}
+    # nodes::Vector{Node}
+    nodes::Dict{Node, Node}
+    # weights::Vector{Weight{T}}
+    weights::Dict{Weight{T}, Weight{T}}
 end
 
 nodes(graph::Graph) = graph.nodes
