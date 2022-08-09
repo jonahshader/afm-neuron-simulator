@@ -40,7 +40,8 @@ end
 # Top level function for creating weights from a component tree and nodes
 # nodes can be dict or vector
 function make_weights_from_component_tree(root::Component, nodes, T::DataType)
-    make_weights_sublevel(root, nodes, Path(), T, true)
+    weight_dict = Dict{Weight{T}, Weight{T}}()
+    make_weights_sublevel(root, nodes, weight_dict, Path(), T, true)
 end
 
 # Returns all weights of which the destination is the specified node.
@@ -97,8 +98,10 @@ sparsity(x) = Float64(count(iszero, x)) / length(x)
 
 # Populates a labeled weight matrix with the weights of the reduced graph
 function reduced_graph_to_labeled_matrix(graph::Graph, sparse_=true, gpu=false)
-    node_vec = [x for x in values(nodes(graph))]
-    weights_vec = [x for x in values(weights(graph))]
+    # node_vec = [x for x in values(nodes(graph))]
+    # weights_vec = [x for x in values(weights(graph))]
+    node_vec = values(nodes(graph))
+    weights_vec = values(weights(graph))
     
     neuron_nodes = filter(x->type(x) == :neuron, node_vec)
     root_input_nodes = filter(x->type(x) == :root_input, node_vec)
@@ -230,9 +233,9 @@ end
 
 # Private method for recursively creating weights from a component tree, excluding the top level
 # nodes can be dict or vector
-function make_weights_sublevel(comp::Component, nodes, current_path::Path, T::DataType, is_root::Bool=false)
+function make_weights_sublevel(comp::Component, nodes, weight_dict, current_path::Path, T::DataType, is_root::Bool=false)
     # weight_list = Vector{Weight{T}}()
-    weight_dict = Dict{Weight{T}, Weight{T}}()
+    # weight_dict = Dict{Weight{T}, Weight{T}}()
     for p in nonzero_pairs(weights(comp))
         dest_node = get_node_from_label(nodes, p[1][1], false, current_path, is_root)
         src_node = get_node_from_label(nodes, p[1][2], true, current_path, is_root)
@@ -243,7 +246,7 @@ function make_weights_sublevel(comp::Component, nodes, current_path::Path, T::Da
     for clabel in component_labels(comp)
         c = comp[clabel]
         # weight_list = vcat(weight_list, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
-        merge!(weight_dict, make_weights_sublevel(c, nodes, vcat(current_path, clabel), T))
+        merge!(weight_dict, make_weights_sublevel(c, nodes, weight_dict, vcat(current_path, clabel), T))
     end
     # weight_list
     weight_dict
