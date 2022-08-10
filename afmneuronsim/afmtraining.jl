@@ -19,7 +19,7 @@ end
 
 function loss_mse!(parts::AFMModelParts, single_input, single_target_output; rebuild_model=true, peak_output=9e11, args...)
     if rebuild_model
-        rebuild_model_parts!(parts, input_to_spikes(single_input), args...)
+        rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input), args...)
     else
         change_input_functions!(parts, input_to_spikes(single_input))
     end

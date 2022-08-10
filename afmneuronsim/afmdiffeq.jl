@@ -38,7 +38,7 @@ export plot_Φ
 export plot_dΦ
 export plot_output
 export plot_input
-export parameter_mask_view
+export weight_mask_view
 
 export root
 export reduced_graph
@@ -219,11 +219,10 @@ function change_input_functions!(parts::AFMModelParts, new_input_functions)
     nothing
 end
 
-
-
-function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=true, gpu=false)
-    parts = build_model_parts(root, tspan, input_functions, sparse_, gpu)
+function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=nothing, gpu=false)
+    parts = build_model_parts(root, tspan, input_functions; sparse_=sparse_, gpu=gpu)
     solve_parts!(parts)
+    parts
 end
 
 function continue!(parts::AFMModelParts, tspan, input_functions::Vector{Function}=nothing)
@@ -517,7 +516,7 @@ function plot_input(parts::AFMModelParts; args...)
     plot(sol(parts).t, transpose(input_dΦ(parts)), label=reshape(label, (1, length(label))); args...)
 end
 
-function parameter_mask_view(root::Component)
+function weight_mask_view(root::Component)
     param_views = Vector{SubArray{Float64, 2}}()
     mask_views = Vector{SubArray{Bool, 2}}()
 
