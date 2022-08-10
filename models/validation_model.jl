@@ -20,5 +20,5 @@ set_weight!(chain, (n,), 1, 1.0) # connect last neuron to output
 
 parts = build_model_parts(chain, (0.0, 9e-10), input_to_spikes([0.0]));
 
-solve_parts!(parts);
+solve_parts!(parts, dense=false);
 plot_Φ(parts)
