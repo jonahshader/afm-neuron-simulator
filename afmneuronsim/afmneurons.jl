@@ -10,7 +10,6 @@ const FEMTO = 1e-15 # 10e-15
 _fex = 27.5 * TERA
 
 _fe = 1.75 * GIGA
-# _sigma = 2.16 * TERA
 
 
 _Φ_init = nothing
@@ -61,8 +60,6 @@ get_default_bias() = default_neuron_params[8]
 
 const ϵ = 1e-12
 
-# TODO: change Neurons to be a type alias on a Matrix with 8 rows and n cols.
-# this makes it easier to perform operations on Neurons like concatination
 mutable struct Neurons
     Φ_init::Vector{Float64}
     dΦ_init::Vector{Float64} 
@@ -159,12 +156,12 @@ function build_neuron_params(root, gpu=false)
     bias = map_component_array_depth_first(x->x.neurons.bias, root)
 
     if gpu
-        sigma = CuArray{Float32}(sigma)
-        a = CuArray{Float32}(a)
-        we = CuArray{Float32}(we)
-        wex = CuArray{Float32}(wex)
-        beta = CuArray{Float32}(beta)
-        bias = CuArray{Float32}(bias)
+        sigma = cu(sigma)
+        a = cu(a)
+        we = cu(we)
+        wex = cu(wex)
+        beta = cu(beta)
+        bias = cu(bias)
     end
     (sigma, a, we, wex, beta, bias)
 end
@@ -180,6 +177,7 @@ function build_u0(root, gpu=false)
     hcat(Φ_init, dΦ_init)
 end
 
+# reverse of building. take a state from the solution and apply it to the original neurons within root
 function unbuild_u0!(root, u0::Matrix)
     Φ_init = view(u0, :, 1)
     dΦ_init = view(u0, :, 2)

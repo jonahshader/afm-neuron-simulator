@@ -110,7 +110,6 @@ function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, 
         gradient_approx ./= population_size
 
         # update center_params with gradient approximation
-        # center_params .-= gradient_approx # .* 100000
         adam!(center_params, mask, gradient_approx, a, 0.9, 0.999, m, v, mh, vh, i)
 
         # copy center_params to population
@@ -179,7 +178,6 @@ function train!(parts::AFMModelParts, loss_fun_builder::Function, batch_generato
         gradient_approx ./= population_size
 
         # update center_params with gradient approximation
-        # center_params .-= gradient_approx # .* 100000
         adam!(center_params, mask, gradient_approx, a, 0.9, 0.999, m, v, mh, vh, i)
 
         # copy center_params to population

@@ -24,8 +24,6 @@ end
 get_vector(v::LabeledVector) = v.vector
 Base.length(lv::LabeledVector) = length(lv.vector)
 
-# Base.getindex(v::LabeledVector{T, L}, i1::Int) where {T, L} = v.vector[i1]
-# Base.getindex(v::LabeledVector{T, L}, i1::L) where {T, L} = v.vector[v.labels[i1]]
 Base.push!(lv::LabeledVector{T, L}, x::T) where {T, L} = Base.push!(lv.vector, x)
 function push_and_label!(lv::LabeledVector{T, L}, x::T, label::L) where {T, L}
     push!(lv.vector, x)

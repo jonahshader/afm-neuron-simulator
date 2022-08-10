@@ -7,7 +7,7 @@ set_defaults!(a=0.1, bias=0.000198)
 k_zero = 0.011 / (_beta *_sigma)
 # k_zero = 0.009 / (_beta *_sigma)
 
-n = 5
+n = 10
 chain = Component(1, 1)
 add_neurons!(chain, 1, Φ_init=0.9)
 add_neurons!(chain, n-1)

@@ -1,3 +1,3 @@
 using Pkg
 
-Pkg.add(["DifferentialEquations", "Plots", "RecursiveArrayTools", "AutoHashEquals"])
+Pkg.add(["DifferentialEquations", "Plots", "RecursiveArrayTools", "AutoHashEquals", "CUDA"])

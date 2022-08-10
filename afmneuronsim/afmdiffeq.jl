@@ -1,24 +1,9 @@
-# include("graph/afmgraph_methods.jl")
-# include("afmcomponent.jl")
-# include("utils.jl")
-
 using LinearAlgebra
 using SparseArrays
 using DifferentialEquations
 using RecursiveArrayTools
 using Plots
 
-
-# export root, set_root!Φ
-# export nnm
-# export inm
-# export nom
-# export iom
-# export tspan, set_tspan!
-# export u0, set_u0!
-# export input_functions
-# export ode_problem
-# export sol
 
 export AFMModelParts
 export solve_parts!
@@ -50,19 +35,7 @@ export tspan
 export u0
 export sol
 
-
-
 mutable struct AFMModelParts{T<:AbstractFloat}
-    # graph::Graph{T}
-    # nnm::AbstractMatrix{T}
-    # inm::AbstractMatrix{T}
-    # nom::AbstractMatrix{T}
-    # iom::AbstractMatrix{T}
-    # u0::AbstractMatrix{T}
-    # tspan::Tuple{T, T}
-    # input_functions::Vector{Function}
-    # ode_problem::ODEProblem
-    # sol::Union{OrdinaryDiffEq.ODECompositeSolution, Nothing}
     root::Component
     reduced_graph::Graph{T}
     nom::AbstractMatrix{T}
@@ -161,10 +134,8 @@ function build_model_parts(root::Component, tspan, input_functions::Vector{Funct
 
     p = (neuron_params..., mats[1], mats[2], model_input_temp, n_voltage_temp, n_arr_temp2, n_arr_accum, (input_functions...,))
     prob = ODEProblem(afm_diffeq!, u0, tspan, p)
-    # TODO: where i left off refactoring
     
     AFMModelParts{stype}(root, graph, mats[3], mats[4], tspan, u0, p, input_functions, prob, sparse_, gpu, nothing)
-    # AFMModelParts{Float64}(Graph{Float64}(nodes, weights), raw(mats[1]), raw(mats[2]), raw(mats[3]), raw(mats[4]), u0, tspan, input_functions, prob, nothing)
 end
 
 function rebuild_model_parts!(parts::AFMModelParts; model_changed=true, new_tspan=nothing, new_input_functions=nothing, new_sparse=nothing, new_gpu=nothing)
@@ -203,8 +174,6 @@ function rebuild_model_parts!(parts::AFMModelParts; model_changed=true, new_tspa
         ODEProblem(afm_diffeq!, u0(parts), tspan(parts), parts.p)
     end
 
-    # set_u0!(parts, u0)
-    # set_p!(parts, p)
     set_ode_problem!(parts, prob)
     set_sol!(parts, nothing)
     nothing
@@ -217,8 +186,6 @@ function change_input_functions!(parts::AFMModelParts, new_input_functions)
     set_sol!(parts, nothing)
     nothing
 end
-
-
 
 function update_component_state!(parts::AFMModelParts)
     unbuild_u0!(root(parts), sol(parts)[end])
@@ -241,12 +208,6 @@ function continue!(pts::AFMModelParts, _tspan, input_functions::Vector{Function}
     set_ode_problem!(pts, prob)
     solve_parts!(pts)
 end
-
-# function build_and_continue(root::Component, parts::AFMModelParts, tspan, input_functions::Vector{Function}=Vector{Function}())
-#     new_parts = build_model_parts(root, tspan, input_functions, sparse_(parts), gpu(parts), custom_state=sol(parts)[end])
-#     solve_parts!(new_parts)
-#     new_parts
-# end
 
 function make_gaussian(a, b, c)
     function gaussian(t)
@@ -278,39 +239,14 @@ function input_time_to_spikes(inputs::Vector{Float64}; peak_current=0.0001, spik
     input_funs
 end
 
-function peak_output(parts::AFMModelParts, sol)
-    output = zeros(Float64, size(parts.iom)[1])
-    curr_output = zeros(Float64, size(parts.iom)[1])
-    curr_output_accum = zeros(Float64, size(parts.iom)[1])
-    curr_input = zeros(Float64, size(parts.iom)[2])
-    for i in 1:size(sol)[3]
-        dΦ = view(sol, [:, 2, i])
-        mul!(curr_output, parts.iom, dΦ)
-    end
-
-    # mul!(model_arr_accum, iom, model_input_temp)
-    # mul!(model_output_temp, nom, n_voltage_temp)
-    # model_arr_accum .+= model_output_temp # accumulate current
-
-
-end
-
 function input_dΦ(parts::AFMModelParts)
     # https://discourse.julialang.org/t/mapping-vector-of-functions-to-vector-of-numbers/20942
     transpose(sol(parts).t) .|> input_functions(parts)
 end
 
-# function input_Φ(parts::AFMModelParts)
-
-# end
-
 function output_dΦ(parts::AFMModelParts)
-    # Φ_part = view(parts.sol, :, 1, :)
     dΦ_part = view(parts.sol, :, 2, :)
-    # Φ_output = parts.nom * Φ_part
     (nom(parts) * dΦ_part) + (iom(parts) * input_dΦ(parts))
-
-    # TODO: compute Φ of input functions?
 end
 
 """
@@ -343,9 +279,6 @@ function afm_diffeq!(du, u, p, t)
 
     # populate model_input_temp from list of functions of time
     model_input_temp .= t .|> input_functions
-    # for i in eachindex(input_functions)
-    #     model_input_temp[i] = input_functions[i](t)
-    # end
 
     # model_input to neuron_input
     n_voltage_temp .= dΦ .* beta # n_voltage_temp represents the voltage generated from the neurons
@@ -359,12 +292,12 @@ function afm_diffeq!(du, u, p, t)
     nothing
 end
 
-function build_neuron_labels(nodes::Vector{Node})
+function build_neuron_labels(nodes::AbstractVector{Node})
     neuron_nodes = filter(x->x.type == :neuron, nodes)
     hcat(map(x->node_str(x), neuron_nodes)...)
 end
 
-build_neuron_labels(parts::AFMModelParts) = build_neuron_labels(nodes(reduced_graph(parts)))
+build_neuron_labels(parts::AFMModelParts) = build_neuron_labels(nodes_vector(reduced_graph(parts)))
 """
     plot_Φ(parts::AFMModelParts; args...)
 
@@ -543,18 +476,6 @@ function weight_mask_view(root::Component)
     (VectorOfArray(param_views), VectorOfArray(mask_views))
 end
 
-# function neuron_mask_view(root::Component)
-#     param_views = Vector{SubArray{Float64, 2}}()
-#     mask_views = Vector{SubArray{Bool, 2}}()
-
-#     unique_components = unique(map_component_depth_first(x->x, root))
-#     for c in unique_components
-#         push!(param_views, view((neurons(c).a), :, :))
-#         push!(mask_views, view((neurons_trainable_mask(c)), :, :))
-#     end
-
-#     (VectorOfArray(param_views), VectorOfArray(mask_views))
-# end
 
 function neuron_dampening_view(root::Component)
     param_views = Vector{SubArray{Float64, 1}}()

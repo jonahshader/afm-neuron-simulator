@@ -244,8 +244,6 @@ function sources_length(c::Component)::Int
     curr_length
 end
 
-
-
 # computes the total number of destinations inside this component. represents the number of rows in weights matrix
 function destinations_length(c::Component)::Int
     curr_length = output_length(c)
@@ -303,6 +301,7 @@ function build_weights_matrix!(c::Component)
     set_labels!(c.weights_trainable_mask, dest, src)
 
     # re-apply old weights and trainable mask
+    # TODO: LabeledMatrix needs a way to check if an entry exists for neuron and component removal to work
     for p in nonzero_pairs(weights_old)
         c.weights[p[1]...] = p[2]
     end
