@@ -44,6 +44,35 @@ function Base.setindex!(v::LabeledVector{T, L}, x, i1::L) where {T, L}
     nothing
 end
 
+function remove!(lv::LabeledVector{T, L}, i1::Int) where {T, L}
+    # find the label to remove using the reverse lookup
+    label = get_label(lv, i1)
+    # remove the label from the labels dict
+    delete!(lv.labels, label)
+    # remove the label from the labels_reversed dict
+    delete!(lv.labels_reversed, i1)
+    # remove the element from the vector
+    deleteat!(lv.vector, i1)
+    # shift down all indices that are greater than i1 using list comp
+    new_lables = Dict{L, Int}()
+    new_reverse_lables = Dict{Int, L}()
+    for (x, y) in lv.labels
+        if y > i1
+            new_lables[x] = y - 1
+            new_reverse_lables[y - 1] = x
+        else
+            new_lables[x] = y
+            new_reverse_lables[y] = x
+        end
+    end
+    lv.labels = new_lables
+    lv.labels_reversed = new_reverse_lables
+end
+
+function remove!(lv::LabeledVector{T, L}, i1::L) where {T, L}
+    remove!(lv, labels[i1])
+end
+
 function get_label(v::LabeledVector, index::Int)
     if haskey(v.labels_reversed, index)
         return v.labels_reversed[index]
@@ -62,6 +91,10 @@ function Base.getindex(v::LabeledVector{T, L}, label::L) where {T, L}
     else
         return nothing
     end
+end
+
+function haslabel(v::LabeledVector{T, L}, label::L) where {T, L}
+    return haskey(v.labels, label)
 end
 
 function set_label!(v::LabeledVector{T, L}, index::Int, label::L) where {T, L}

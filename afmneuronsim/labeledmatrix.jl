@@ -23,6 +23,11 @@ Base.getindex(m::LabeledMatrix{T, L}, i1::Int, i2::L) where {T, L} = m.matrix[i1
 Base.getindex(m::LabeledMatrix{T, L}, i1::L, i2::Int) where {T, L} = m.matrix[m.row_labels[i1], i2]
 Base.getindex(m::LabeledMatrix{T, L}, i1::L, i2::L) where {T, L} = m.matrix[m.row_labels[i1], m.col_labels[i2]]
 
+hasindex(m::LabeledMatrix{T, L}, i1::Int, i2::Int) where {T, L} = 1 <= i1 <= size(m.matrix, 1) && 1 <= i2 <= size(m.matrix, 2)
+hasindex(m::LabeledMatrix{T, L}, i1::Int, i2::L) where {T, L} = 1 <= i1 <= size(m.matrix, 1) && haskey(m.col_labels, i2)
+hasindex(m::LabeledMatrix{T, L}, i1::L, i2::Int) where {T, L} = haskey(m.row_labels, i1) && 1 <= i2 <= size(m.matrix, 2)
+hasindex(m::LabeledMatrix{T, L}, i1::L, i2::L) where {T, L} = haskey(m.row_labels, i1) && haskey(m.col_labels, i2)
+
 function nonzero_pairs(m::LabeledMatrix{T, L}) where {T, L}
     Label = Union{L, Int}
     output = Vector{Tuple{Tuple{Label, Label}, T}}()

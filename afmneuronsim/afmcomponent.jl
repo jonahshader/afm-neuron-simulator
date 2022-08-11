@@ -133,7 +133,6 @@ neurons(c::Component) = c.neurons
 weights(c::Component) = c.weights
 weights_trainable_mask(c::Component) = c.weights_trainable_mask
 
-# TODO: where i left off
 function add_neurons!(c::Component, names::Vector{String}; args...)
     curr_neurons = length(neurons(c))
     add_neurons!(neurons(c), length(names); args...)
@@ -152,13 +151,37 @@ end
 
 function add_neuron!(c::Component, name::String; args...)
     add_neurons!(neurons(c), 1; args...)
-    @assert !haskey(c.neuron_labels, name)
+    @assert !haskey(c.neuron_labels, name) "Neuron with name $name already exists!"
     c.neuron_labels[name] = length(neurons(c))
     build_weights_matrix!(c)
 end
 
 function add_neuron!(c::Component; args...)
     add_neurons!(neurons(c), 1; args...)
+    build_weights_matrix!(c)
+end
+
+function modify_neuron!(c::Component, label::Union{String, Int}; args...)
+    @assert haskey(c.neuron_labels, label) "Neuron with label $label does not exist!"
+    neuron_index = c.neuron_labels[label]
+    modify_neuron!(neurons(c), neuron_index; args...)
+end
+
+function remove_neuron!(c::Component, name::String)
+    @assert haskey(c.neuron_labels, name) "Neuron with name $name does not exist!"
+    neuron_index = c.neuron_labels[name]
+    remove_neuron!(neurons(c), neuron_index)
+    delete!(c.neuron_labels, name)
+    # remake neuron_labels so that indices above the removed neuron are shifted down by 1
+    new_neuron_labels = Dict{String, Int}()
+    for (name, index) in c.neuron_labels
+        if index > neuron_index
+            new_neuron_labels[name] = index - 1
+        else
+            new_neuron_labels[name] = index
+        end
+    end
+    c.neuron_labels = new_neuron_labels
     build_weights_matrix!(c)
 end
 
@@ -183,6 +206,19 @@ This function currently rebuilds the weight matrices, so make sure to assign wei
 """
 function add_component!(parent::Component, child::Component)
     push!(parent.components, child)
+    build_weights_matrix!(parent)
+    nothing
+end
+
+function remove_component!(parent::Component, name::String)
+    @assert haslabel(parent.components, name)
+    remove!(parent.components, name)
+    build_weights_matrix!(parent)
+    nothing
+end
+
+function remove_component!(parent::Component, index::Int)
+    remove!(parent.components, index)
     build_weights_matrix!(parent)
     nothing
 end
@@ -301,12 +337,16 @@ function build_weights_matrix!(c::Component)
     set_labels!(c.weights_trainable_mask, dest, src)
 
     # re-apply old weights and trainable mask
-    # TODO: LabeledMatrix needs a way to check if an entry exists for neuron and component removal to work
     for p in nonzero_pairs(weights_old)
-        c.weights[p[1]...] = p[2]
+        # only copy over weights that still exist
+        if hasindex(c.weights, p[1]...)
+            c.weights[p[1]...] = p[2]
+        end
     end
     for p in nonzero_pairs(weights_trainable_mask_old)
-        c.weights_trainable_mask[p[1]...] = p[2]
+        if hasindex(c.weights_trainable_mask, p[1]...)
+            c.weights_trainable_mask[p[1]...] = p[2]
+        end
     end
     nothing
 end

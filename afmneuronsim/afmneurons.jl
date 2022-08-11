@@ -147,6 +147,44 @@ function add_neurons!(neurons::Neurons, n::Int=1; Φ_init::Union{Float64, Nothin
     neurons.bias = vcat(neurons.bias, fill(bias, n))
 end
 
+function modify_neuron!(neurons::Neurons, i::Int; Φ_init::Union{Float64, Nothing}=nothing, dΦ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias=nothing)
+    if !isnothing(Φ_init)
+        neurons.Φ_init[i] = Φ_init
+    end
+    if !isnothing(dΦ_init)
+        neurons.dΦ_init[i] = dΦ_init
+    end
+    if !isnothing(sigma)
+        neurons.sigma[i] = sigma
+    end
+    if !isnothing(a)
+        neurons.a[i] = a
+    end
+    if !isnothing(we)
+        neurons.we[i] = we
+    end
+    if !isnothing(wex)
+        neurons.wex[i] = wex
+    end
+    if !isnothing(beta)
+        neurons.beta[i] = beta
+    end
+    if !isnothing(bias)
+        neurons.bias[i] = bias
+    end
+end
+
+function remove_neuron!(neurons::Neurons, i::Int)
+    deleteat!(neurons.Φ_init, i)
+    deleteat!(neurons.dΦ_init, i)
+    deleteat!(neurons.sigma, i)
+    deleteat!(neurons.a, i)
+    deleteat!(neurons.we, i)
+    deleteat!(neurons.wex, i)
+    deleteat!(neurons.beta, i)
+    deleteat!(neurons.bias, i)
+end
+
 function build_neuron_params(root, gpu=false)
     sigma = map_component_array_depth_first(x->x.neurons.sigma, root)
     a = map_component_array_depth_first(x->x.neurons.a, root)

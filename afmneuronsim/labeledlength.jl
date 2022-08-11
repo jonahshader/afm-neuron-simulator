@@ -32,6 +32,10 @@ function get_index(l::LabeledLength{L}, label::L) where {L}
     end
 end
 
+function haslabel(l::LabeledLength{L}, label::L) where {L}
+    return haskey(l.labels, label)
+end
+
 function set_label!(l::LabeledLength{L}, index::Int, label::L) where {L}
     @assert !haskey(l.labels, label)
     l.labels[label] = index
