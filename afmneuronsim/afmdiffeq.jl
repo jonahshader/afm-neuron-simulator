@@ -219,9 +219,9 @@ function change_input_functions!(parts::AFMModelParts, new_input_functions)
     nothing
 end
 
-function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=nothing, gpu=false)
+function build_and_solve(root::Component, tspan, input_functions::Vector{Function}=Vector{Function}(), sparse_=nothing, gpu=false; args...)
     parts = build_model_parts(root, tspan, input_functions; sparse_=sparse_, gpu=gpu)
-    solve_parts!(parts)
+    solve_parts!(parts; args...)
     parts
 end
 

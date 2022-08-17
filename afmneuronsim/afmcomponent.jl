@@ -136,7 +136,7 @@ weights_trainable_mask(c::Component) = c.weights_trainable_mask
 function add_neurons!(c::Component, names::Vector{String}; args...)
     curr_neurons = length(neurons(c))
     add_neurons!(neurons(c), length(names); args...)
-    for i in curr_neurons:(curr_neurons+length(names))
+    for i in curr_neurons:(curr_neurons+length(names)-1)
         name = names[i+1-curr_neurons]
         @assert !haskey(c.neuron_labels, name)
         c.neuron_labels[name] = i+1
@@ -172,6 +172,8 @@ function remove_neuron!(c::Component, name::String)
     neuron_index = c.neuron_labels[name]
     remove_neuron!(neurons(c), neuron_index)
     delete!(c.neuron_labels, name)
+    # make weights to and from the remove neruon zero
+    
     # remake neuron_labels so that indices above the removed neuron are shifted down by 1
     new_neuron_labels = Dict{String, Int}()
     for (name, index) in c.neuron_labels
@@ -183,6 +185,22 @@ function remove_neuron!(c::Component, name::String)
     end
     c.neuron_labels = new_neuron_labels
     build_weights_matrix!(c)
+end
+
+function remove_neuron!(c::Component, neuron_index::Int)
+    @assert neuron_index <= length(neurons(c)) "Neuron with index $neuron_index does not exist!"
+    remove_neuron!(neurons(c), neuron_index)
+    # remake neuron_labels so that indices above the removed neuron are shifted down by 1
+    new_neuron_labels = Dict{String, Int}()
+    for (name, index) in c.neuron_labels
+        if index > neuron_index
+            new_neuron_labels[name] = index - 1
+        else
+            new_neuron_labels[name] = index
+        end
+    end
+    c.neuron_labels = new_neuron_labels
+    remove_neuron_from_weights_matrix!(c, neuron_index)
 end
 
 """
@@ -234,6 +252,10 @@ Base.getindex(c::Component, key_or_index)::Component = c.components[key_or_index
 function set_weight!(c::Component, source::Label, destination::Label, weight::AbstractFloat)
     c.weights[destination, source] = weight
     nothing
+end
+
+function get_weight(c::Component, source::Label, destination::Label)
+    c.weights[destination, source]
 end
 
 # TODO: write a version of this that works with a LabeledMatrix. it won't need sources/destinations vectors
@@ -346,6 +368,37 @@ function build_weights_matrix!(c::Component)
     for p in nonzero_pairs(weights_trainable_mask_old)
         if hasindex(c.weights_trainable_mask, p[1]...)
             c.weights_trainable_mask[p[1]...] = p[2]
+        end
+    end
+    nothing
+end
+
+function remove_neuron_from_weights_matrix!(c::Component, neuron_index::Int)
+    weights_old = c.weights
+    weights_trainable_mask_old = c.weights_trainable_mask
+    int_dest_len = destinations_length(c)
+    int_src_len = sources_length(c)
+    c.weights = LabeledMatrix{Float64, Label}(zeros(Float64, int_dest_len, int_src_len))
+    c.weights_trainable_mask = LabeledMatrix{Bool, Label}(zeros(Bool, int_dest_len, int_src_len))
+    dest = destinations(c)
+    src = sources(c)
+    set_labels!(c.weights, dest, src)
+    set_labels!(c.weights_trainable_mask, dest, src)
+
+    # re-apply old weights and trainable mask
+    # avoid copying over weights connected to neuron_index, and shift down all weights above neuron_index
+    for p in nonzero_pairs(weights_old)
+        src = p[1][1][1]
+        dst = p[1][2][1]
+        if p[1][1] != (neuron_index,) && p[1][2] != (neuron_index,)
+
+            if src > neuron_index
+                src = src - 1
+            end
+            if dst > neuron_index
+                dst = dst - 1
+            end
+            c.weights[(src,), (dst,)] = p[2]  
         end
     end
     nothing
