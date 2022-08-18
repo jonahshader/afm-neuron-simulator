@@ -70,3 +70,4 @@ function run()
 end
 
 # parts, loss_fun, xtrain, ytrain, viewable_images, m, v = run();
+# build_and_solve(parts.root, (0.0, 2e-11), input_to_spikes(xtrain[1])) |> plot_output
