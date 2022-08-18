@@ -119,6 +119,7 @@ function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, 
     end
 
     init_params .= center_params
+    m, v
 end
 
 # every iteration a new batch is generated as opposed to the above function which delegates data handling to the loss_fun
@@ -214,3 +215,4 @@ function adam!(params, mask, gradients, a, beta1, beta2, m, v, mh, vh, t)
     vh .= v ./ (1-beta2^t)
     params .-= (a .* mh ./ (sqrt.(vh) .+ 1e-8)) .* mask # .* mask might not be necessary
 end
+

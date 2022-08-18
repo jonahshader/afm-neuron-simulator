@@ -187,20 +187,56 @@ function remove_neuron!(c::Component, name::String)
     build_weights_matrix!(c)
 end
 
+# function remove_neuron!(c::Component, neuron_index::Int)
+#     @assert neuron_index <= length(neurons(c)) "Neuron with index $neuron_index does not exist!"
+#     remove_neuron!(neurons(c), neuron_index)
+#     # remake neuron_labels so that indices above the removed neuron are shifted down by 1
+#     new_neuron_labels = Dict{String, Int}()
+#     for (name, index) in c.neuron_labels
+#         if index > neuron_index
+#             new_neuron_labels[name] = index - 1
+#         else
+#             new_neuron_labels[name] = index
+#         end
+#     end
+#     c.neuron_labels = new_neuron_labels
+#     remove_neuron_from_weights_matrix!(c, neuron_index)
+# end
+
 function remove_neuron!(c::Component, neuron_index::Int)
     @assert neuron_index <= length(neurons(c)) "Neuron with index $neuron_index does not exist!"
     remove_neuron!(neurons(c), neuron_index)
-    # remake neuron_labels so that indices above the removed neuron are shifted down by 1
-    new_neuron_labels = Dict{String, Int}()
-    for (name, index) in c.neuron_labels
-        if index > neuron_index
-            new_neuron_labels[name] = index - 1
-        else
-            new_neuron_labels[name] = index
+    # first, set all weights connected to the removed neuron to zero
+    for p in nonzero_pairs(weights(c))
+        dst = p[1][1][1]
+        src = p[1][2][1]
+        if p[1] == neuron_index || p[2] == neuron_index
+            weights(c)[(dst,), (src,)] = 0
+            println("Setting weight from $src to $dst to 0")
         end
     end
-    c.neuron_labels = new_neuron_labels
-    remove_neuron_from_weights_matrix!(c, neuron_index)
+
+    # this shifts down the neurons above neuron_index, so we need to shift down the associated weights
+    pairs = nonzero_pairs(weights(c))
+    for p in pairs
+        dst = p[1][1][1]
+        src = p[1][2][1]
+
+        # first, set this weight to zero
+        weights(c)[(dst,), (src,)] = 0
+
+        # next, shift down the indices above neuron_index and re-apply the weight
+        if typeof(dst) == Int && dst > neuron_index
+            dst -= 1
+        end
+        if typeof(src) == Int && src > neuron_index
+            src -= 1
+        end
+        weights(c)[(dst,), (src,)] = p[2]
+    end
+
+    # rebuild the weights matrix, which should get rid of the unused label
+    build_weights_matrix!(c)
 end
 
 """
@@ -388,17 +424,44 @@ function remove_neuron_from_weights_matrix!(c::Component, neuron_index::Int)
     # re-apply old weights and trainable mask
     # avoid copying over weights connected to neuron_index, and shift down all weights above neuron_index
     for p in nonzero_pairs(weights_old)
-        src = p[1][1][1]
-        dst = p[1][2][1]
+        dst = p[1][1][1]
+        src = p[1][2][1]
         if p[1][1] != (neuron_index,) && p[1][2] != (neuron_index,)
 
-            if src > neuron_index
+            if typeof(src) == Int && src > neuron_index
                 src = src - 1
             end
-            if dst > neuron_index
+            if typeof(dst) == Int && dst > neuron_index
                 dst = dst - 1
             end
-            c.weights[(src,), (dst,)] = p[2]  
+            c.weights[(dst,), (src,)] = p[2]  
+        end
+    end
+    nothing
+end
+
+function init_component_weights!(comp::Component, in, nn, io, no)
+    for input in input_labels(comp)
+        for neuron in neuron_labels(comp)
+            set_weight!(comp, input, (neuron,), randn() * in)
+        end
+    end
+
+    for neuron1 in neuron_labels(comp)
+        for neuron2 in neuron_labels(comp)
+            set_weight!(comp, (neuron1,), (neuron2,), randn() * nn)
+        end
+    end
+
+    for input in input_labels(comp)
+        for output in output_labels(comp)
+            set_weight!(comp, input, output, randn() * io)
+        end
+    end
+
+    for neuron in neuron_labels(comp)
+        for output in output_labels(comp)
+            set_weight!(comp, (neuron,), output, randn() * no)
         end
     end
     nothing

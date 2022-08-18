@@ -16,32 +16,7 @@ function get_data(batch_size)
     DataLoader((xtrain, ytrain), batchsize=batch_size, shuffle=true)
 end
 
-function init_component_weights!(comp::Component, in, nn, io, no)
-    for input in input_labels(comp)
-        for neuron in neuron_labels(comp)
-            set_weight!(comp, input, (neuron,), randn() * in)
-        end
-    end
 
-    for neuron1 in neuron_labels(comp)
-        for neuron2 in neuron_labels(comp)
-            set_weight!(comp, (neuron1,), (neuron2,), randn() * nn)
-        end
-    end
-
-    for input in input_labels(comp)
-        for output in output_labels(comp)
-            set_weight!(comp, input, output, randn() * io)
-        end
-    end
-
-    for neuron in neuron_labels(comp)
-        for output in output_labels(comp)
-            set_weight!(comp, (neuron,), output, randn() * no)
-        end
-    end
-    nothing
-end
 
 function make_model()
     input_size = (28*28) + 1
