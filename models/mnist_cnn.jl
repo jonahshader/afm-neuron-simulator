@@ -1,7 +1,7 @@
 include("../afmneuronsim/afmneuronsim.jl")
 using .AFMNeuronSim
 
-
+set_weight_scalar(1.0)
 const INIT_SCALE = 0.4
 set_defaults!(a=0.01, bias=0.0002)
 

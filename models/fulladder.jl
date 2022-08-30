@@ -5,6 +5,8 @@ include("../afmneuronsim/includes.jl")
 # using DifferentialEquations
 # using Plots
 
+set_weight_scalar(1.0)
+
 full_adder = Component(["a", "b", "c-in"], ["sum", "c-out"])
 xor = Component(2, 1)
 add_component!(full_adder, xor, "xor1")

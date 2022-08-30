@@ -9,6 +9,8 @@ using MLDatasets
 using Flux.Data: DataLoader
 using Flux: onehot
 
+set_weight_scalar(1.0)
+
 # load MNIST images and return loader
 function get_data(batch_size)
     xtrain, ytrain = MLDatasets.MNIST(:train)[:]

@@ -4,8 +4,10 @@ using Images
 
 using Flux: onehot
 
+set_weight_scalar(1.0)
+
 # each image becomes its own class. this will need to be modified when we have more than one image per class.
-function load_data(;variations_per_class=1, noise_power=2, noise_scalar=0.1)
+function load_data(;variations_per_class=1, noise_scalar=0.1)
     path = "models/smaller_classification_dataset"
     image_names = readdir(path)
 
@@ -19,7 +21,7 @@ function load_data(;variations_per_class=1, noise_power=2, noise_scalar=0.1)
 
         for _ in 1:variations_per_class
             # apply noise to the image
-            modified_image = image .+ (randn(size(image)...) .^ noise_power) .* noise_scalar
+            modified_image = image .+ randn(size(image)...) .* noise_scalar
             push!(viewable_images, modified_image)
             push!(xtrain, convert(Vector{Float64}, reshape(modified_image, length(modified_image))))
             push!(xtrain[end], 1.0) # add clock
@@ -61,11 +63,11 @@ function run()
     model = make_model()
     parts = build_model_parts(model, (0.0, 2e-11), input_to_spikes(zeros(Float64, 7 * 7 + 1)))
 
-    xtrain, ytrain, viewable_images = load_data(variations_per_class=5, noise_power=2, noise_scalar=0.5)
+    xtrain, ytrain, viewable_images = load_data(variations_per_class=25, noise_scalar=0.5)
 
     loss_fun = loss_fun_builder(xtrain, ytrain)
 
-    m, v = train!(parts, loss_fun, 20, 150)
+    m, v = train!(parts, loss_fun, 20, 30)
     parts, loss_fun, xtrain, ytrain, viewable_images, m, v
 end
 

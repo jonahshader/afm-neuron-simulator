@@ -6,6 +6,7 @@
 set_defaults!(a=0.1, bias=0.000198)
 k_zero = 0.011 / (_beta *_sigma)
 # k_zero = 0.009 / (_beta *_sigma)
+set_weight_scalar(1.0)
 
 n = 10
 chain = Component(0, 0)

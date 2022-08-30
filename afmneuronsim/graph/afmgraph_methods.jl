@@ -80,6 +80,7 @@ function substitute_internal_io!(graph::Graph)
     for to_sub in to_subs
         substitute_node!(graph, to_sub, node_to_incoming_weights, node_to_outgoing_weights)
     end
+
     graph
 end
 
@@ -232,20 +233,29 @@ function substitute_node!(graph::Graph, to_sub::Node, node_to_incoming_weights, 
     for i in incoming
         for o in outgoing
             @assert from(i) != to(i)
-            push!(weights(graph), Weight(weight(i) * weight(o), from(i), to(o)))
+            new_weight = Weight(weight(i) * weight(o), from(i), to(o))
+            push!(weights(graph), new_weight)
+
+            # add new weight to node_to_incoming_weights and node_to_outgoing_weights
+            push!(node_to_incoming_weights[to(o)], new_weight)
+            push!(node_to_outgoing_weights[from(i)], new_weight)
         end
     end
 
     for i in incoming
+        # to_delete = findall(x->x == i, weights(graph))
+        # show(to_delete)
         deleteat!(weights(graph), findall(x->x == i, weights(graph)))
-        push!(weights_to_delete, i)
+        # push!(weights_to_delete, i)
     end
     for o in outgoing
+        # to_delete = findall(x->x == o, weights(graph))
+        # show(to_delete)
         deleteat!(weights(graph), findall(x->x == o, weights(graph)))
-        push!(weights_to_delete, o)
+        # push!(weights_to_delete, o)
     end
 
     deleteat!(nodes(graph), findall(x->x == to_sub, nodes(graph)))
-    push!(nodes_to_delete, to_sub)
+    # push!(nodes_to_delete, to_sub)
     nothing
 end

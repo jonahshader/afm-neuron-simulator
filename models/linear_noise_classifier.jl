@@ -1,8 +1,8 @@
 include("../afmneuronsim/afmneuronsim.jl")
 using .AFMNeuronSim
 
-include("../afmneuronsim/afmtraining.jl")
 
+set_weight_scalar(1.0)
 
 using DifferentialEquations
 using Plots

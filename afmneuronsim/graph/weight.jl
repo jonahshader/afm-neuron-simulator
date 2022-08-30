@@ -1,4 +1,6 @@
-struct Weight{T<:AbstractFloat}
+using AutoHashEquals
+
+@auto_hash_equals struct Weight{T<:AbstractFloat}
     weight::T
     from::Node
     to::Node

@@ -3,6 +3,8 @@ include("../afmneuronsim/includes.jl")
 using DifferentialEquations
 using Plots
 
+set_weight_scalar(1.0)
+
 function make_model()
     # the +1 is for the clock input
     input_size = 2 + 1
