@@ -27,8 +27,6 @@ function load_data(;variations_per_class=1, noise_scalar=0.1)
             push!(xtrain[end], 1.0) # add clock
             push!(ytrain, convert(Vector{Float64}, onehot(i, 1:length(image_names))))
         end
-
-
     end
 
     xtrain, ytrain, viewable_images

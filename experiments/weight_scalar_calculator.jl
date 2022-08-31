@@ -49,5 +49,5 @@ function run()
     # parts = build_model_parts(top, ts, input_funs)
     # solve_parts!(parts)
     # build_and_solve(top, ts, input_funs) |> plot_Φ
-    plot_Φ(build_and_solve(top, ts, input_funs), "[para")
+    plot_Φ(build_and_solve(top, ts, input_funs))
 end
