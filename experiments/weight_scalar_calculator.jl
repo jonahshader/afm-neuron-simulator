@@ -6,7 +6,7 @@ function make_model()
     top = Component(1, 0)
     first_spike_distiller = Component(1, 1)
     add_neurons!(first_spike_distiller, 5)
-    distill_neuron_weight = 0.7
+    distill_neuron_weight = 0.7 * 10
     # set input weight
     set_weight!(first_spike_distiller, 1, (1,), distill_neuron_weight)
     for i in 1:4
@@ -44,10 +44,23 @@ end
 
 function run()
     top = make_model()
-    input_funs = input_to_spikes([1.0])
-    ts = (0.0, 9e-11)
+    input_funs = input_to_spikes([1.0], spike_width=1.2e-12)
+    ts = (0.0, 600 * PICO)
     # parts = build_model_parts(top, ts, input_funs)
     # solve_parts!(parts)
     # build_and_solve(top, ts, input_funs) |> plot_Φ
-    plot_Φ(build_and_solve(top, ts, input_funs))
+    plot_Φ(build_and_solve(top, ts, input_funs, dense=false), "[parallel_neurons]")
 end
+
+function test_chain(w, picos=2000, num_neurons=20)
+    comp = Component(0, 0)
+    ts = (0.0, picos * PICO)
+    add_neuron!(comp, Φ_init=0.95)
+    add_neurons!(comp, num_neurons-1)
+    for i in 1:num_neurons-1
+        set_weight!(comp, (i,), (i+1,), w)
+    end
+
+    build_and_solve(comp, ts, input_to_spikes([0.0]), dense=false)
+end
+

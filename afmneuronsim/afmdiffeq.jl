@@ -27,7 +27,6 @@ export build_model_parts
 export build_and_solve
 export rebuild_model_parts!
 export change_input_functions!
-export input_to_spikes
 export peak_output
 export input_dΦ
 export output_dΦ
@@ -256,7 +255,9 @@ The result is the vector of functions which take in time and return current. The
 The spikes produced by this function are Gaussian. Properties of the spike can be specified by overriding the default values, which are
 `peak_current`, `spike_center`, and `spike_width`.
 """
-function input_to_spikes(inputs::Vector{Float64}, peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)::Vector{Function}
+#1.16875e-5
+#peak_current=0.0001, spike_center=21e-13, spike_width=9e-13
+function input_to_spikes(inputs::Vector{Float64}; peak_current=1.16875e-5, spike_center=60*PICO, spike_width=1.5e-11)::Vector{Function}
     input_funs = Vector{Function}()
     for i in inputs
         push!(input_funs, make_gaussian(peak_current * i, spike_center, spike_width))
@@ -302,7 +303,7 @@ end
 """
     output_Φ(parts::AFMModelParts)
 
-Returns neuron-to-output matrix times neuron Φ. The input-to-output matrix is current ignored, as that would require the integrals of the input functions to be known or computed.
+Returns neuron-to-output matrix times neuron Φ. The input-to-output matrix is currently ignored, as that would require the integrals of the input functions to be known or computed.
 """
 function output_Φ(parts::AFMModelParts)
     Φ_part = view(parts.sol, :, 1, :)
@@ -498,12 +499,12 @@ end
 
 function plot_output(parts::AFMModelParts, output_index::Int; args...)
     label = output_labels(root(parts))
-    plot(sol(parts).t, transpose(output_dΦ(parts))[:, output_index], label=reshape(label, (1, length(label)))[output_index]; args...)
+    plot(sol(parts).t, transpose(output_dΦ(parts))[:, output_index], label=reshape(label, (1, length(label)))[output_index], yaxis="Voltage"; args...)
 end
 
 function plot_output(parts::AFMModelParts; args...)
     label = output_labels(root(parts))
-    plot(sol(parts).t, transpose(output_dΦ(parts)), label=reshape(label, (1, length(label))); args...)
+    plot(sol(parts).t, transpose(output_dΦ(parts)), label=reshape(label, (1, length(label))), yaxis="Voltage"; args...)
 end
 
 function plot_input(parts::AFMModelParts, input_index::Int; args...)

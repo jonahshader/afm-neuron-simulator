@@ -285,8 +285,7 @@ These can be chained together to naviagte through the component tree.
 """
 Base.getindex(c::Component, key_or_index)::Component = c.components[key_or_index]
 
-# the range for a single spike seems to be 0.4356 to 1.75
-_weight_scalar = [1.75] # experimentally discovered value. 1.75 will strongly propagate one spike with default parameters. doubling 1.75 will propagate two spikes
+_weight_scalar = [3.93]
 
 function set_weight_scalar(scalar)
     _weight_scalar[1] = scalar
@@ -295,6 +294,16 @@ end
 function set_weight!(c::Component, source::Label, destination::Label, weight::AbstractFloat)
     c.weights[destination, source] = weight * _weight_scalar[1]
     nothing
+end
+
+function set_weight!(c::Component, source::Label, destination::Label, special::Symbol)
+    if special == :pass
+        c.weights[destination, source] = 1.0
+    elseif special == :pass_inv
+        c.weights[destination, source] = -1.0
+    else
+        error("Invalid special weight $special")
+    end
 end
 
 function get_weight(c::Component, source::Label, destination::Label)

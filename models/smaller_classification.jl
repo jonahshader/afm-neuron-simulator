@@ -5,6 +5,8 @@ using Images
 using Flux: onehot
 
 set_weight_scalar(1.0)
+set_default_a(0.01)
+set_default_bias(0.0002)
 
 # each image becomes its own class. this will need to be modified when we have more than one image per class.
 function load_data(;variations_per_class=1, noise_scalar=0.1)
@@ -59,9 +61,9 @@ end
 
 function run()
     model = make_model()
-    parts = build_model_parts(model, (0.0, 2e-11), input_to_spikes(zeros(Float64, 7 * 7 + 1)))
+    parts = build_model_parts(model, (0.0, 20 * PICO), input_to_spikes(zeros(Float64, 7 * 7 + 1)))
 
-    xtrain, ytrain, viewable_images = load_data(variations_per_class=25, noise_scalar=0.5)
+    xtrain, ytrain, viewable_images = load_data(variations_per_class=100, noise_scalar=0.25)
 
     loss_fun = loss_fun_builder(xtrain, ytrain)
 

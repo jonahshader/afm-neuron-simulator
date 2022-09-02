@@ -1,11 +1,7 @@
 using CUDA
 using RecursiveArrayTools
 
-export set_defaults!
-
-const TERA = 1e12 # 10e12
-const GIGA = 1e9 # 10e9
-const FEMTO = 1e-15 # 10e-15
+export set_defaults
 
 _fex = 27.5 * TERA
 
@@ -15,37 +11,43 @@ _fe = 1.75 * GIGA
 _Φ_init = nothing
 _dΦ_init = 0.0
 _sigma = 27.1e12
-_a = 0.01
+_a = 0.1
 _we = _fe * 2pi
 _wex = _fex * 2pi
 _beta = 0.11e-15
-_bias = 0.0002 # 0.000202
+_bias_ratio = 0.97
+_bias = _bias_ratio * _we / (2 * _sigma)
 
-default_neuron_params = [_Φ_init, _dΦ_init, _sigma, _a, _we, _wex, _beta, _bias]
+default_neuron_params = [_Φ_init, _dΦ_init, _sigma, _a, _we, _wex, _beta, _bias_ratio, _bias]
 
-function set_default_Φ_init!(Φ_init)
+function set_default_Φ_init(Φ_init)
     default_neuron_params[1] = Φ_init
 end
-function set_default_dΦ_init!(dΦ_init)
+function set_default_dΦ_init(dΦ_init)
     default_neuron_params[2] = dΦ_init
 end
-function set_default_sigma!(sigma)
+function set_default_sigma(sigma)
     default_neuron_params[3] = sigma
 end
-function set_default_a!(a)
+function set_default_a(a)
     default_neuron_params[4] = a
 end
-function set_default_we!(we)
+function set_default_we(we)
     default_neuron_params[5] = we
 end
-function set_default_wex!(wex)
+function set_default_wex(wex)
     default_neuron_params[6] = wex
 end
-function set_default_beta!(beta)
+function set_default_beta(beta)
     default_neuron_params[7] = beta
 end
-function set_default_bias!(bias)
-    default_neuron_params[8] = bias
+# set_default_bias_ratio calculates and assigns bias in addition to bias_ratio
+function set_default_bias_ratio(bias_ratio)
+    default_neuron_params[8] = bias_ratio
+    set_default_bias(bias_ratio * get_default_we() / (2 * get_default_sigma()))
+end
+function set_default_bias(bias)
+    default_neuron_params[9] = bias
 end
 
 get_default_Φ_init() = default_neuron_params[1]
@@ -55,7 +57,8 @@ get_default_a() = default_neuron_params[4]
 get_default_we() = default_neuron_params[5]
 get_default_wex() = default_neuron_params[6]
 get_default_beta() = default_neuron_params[7]
-get_default_bias() = default_neuron_params[8]
+get_default_bias_ratio() = default_neuron_params[8]
+get_default_bias() = default_neuron_params[9]
 
 
 const ϵ = 1e-12
@@ -82,30 +85,33 @@ function Base.length(n::Neurons)::Int
     Base.length(n.Φ_init)
 end
 
-function set_defaults!(;Φ_init=nothing, dΦ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias=nothing)
+function set_defaults(;Φ_init=nothing, dΦ_init=nothing, sigma=nothing, a=nothing, we=nothing, wex=nothing, beta=nothing, bias_ratio=nothing, bias=nothing)
     if !isnothing(Φ_init)
-        set_default_Φ_init!(Φ_init)
+        set_default_Φ_init(Φ_init)
     end
     if !isnothing(dΦ_init)
-        set_default_dΦ_init!(dΦ_init)
+        set_default_dΦ_init(dΦ_init)
     end
     if !isnothing(sigma)
-        set_default_sigma!(sigma)
+        set_default_sigma(sigma)
     end
     if !isnothing(a)
-        set_default_a!(a)
+        set_default_a(a)
     end
     if !isnothing(we)
-        set_default_we!(we)
+        set_default_we(we)
     end
     if !isnothing(wex)
-        set_default_wex!(wex)
+        set_default_wex(wex)
     end
     if !isnothing(beta)
-        set_default_beta!(beta)
+        set_default_beta(beta)
+    end
+    if !isnothing(bias_ratio)
+        set_default_bias_ratio(bias_ratio)
     end
     if !isnothing(bias)
-        set_default_bias!(bias)
+        set_default_bias(bias)
     end
 end
 
