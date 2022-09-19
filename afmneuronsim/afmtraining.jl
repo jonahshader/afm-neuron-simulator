@@ -190,6 +190,8 @@ function train!(parts::AFMModelParts, loss_fun_builder::Function, batch_generato
     init_params .= center_params
 end
 
+# TODO: create version that uses early stopping, and returns validation loss
+
 function evaluate!(parts::AFMModelParts, init_params, eval_instance, loss_fun)
     init_params .= eval_instance.params
     eval_instance.eval = loss_fun(parts)
