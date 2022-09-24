@@ -37,22 +37,22 @@ function loss_mse!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output
     total_loss / length(input)
 end
 
-function loss_logitcrossentropy!(parts::AFMModelParts, single_input, single_target_output, peak_output=9e11; rebuild_model=true)
+function loss_logitcrossentropy!(parts::AFMModelParts, single_input, single_target_output, peak_output=9e11; rebuild_model=true, args...)
     if rebuild_model
-        rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input))
+        rebuild_model_parts!(parts, new_input_functions=input_to_spikes(single_input; args...))
     else
-        change_input_functions!(parts, input_to_spikes(single_input))
+        change_input_functions!(parts, input_to_spikes(single_input; args...))
     end
     solve_parts!(parts, dense=false)
     logitcrossentropy(output_max(parts) ./ peak_output, single_target_output)
 end
 
-function loss_logitcrossentropy!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output::Vector{Vector{T}}) where {T<:AbstractFloat}
+function loss_logitcrossentropy!(parts::AFMModelParts, input::Vector{Vector{T}}, target_output::Vector{Vector{T}}; args...) where {T<:AbstractFloat}
     total_loss = 0.0
     # TODO: parallelize
     full_rebuild = true
     for io_pair in zip(input, target_output)
-        total_loss += loss_logitcrossentropy!(parts, io_pair[1], io_pair[2], rebuild_model=full_rebuild)
+        total_loss += loss_logitcrossentropy!(parts, io_pair[1], io_pair[2], rebuild_model=full_rebuild; args...)
         full_rebuild = false 
     end
     total_loss / length(input)
@@ -60,7 +60,7 @@ end
 
 # TODO: docs. this train!'s loss_fun takes in parts and returns loss
 # below is a version that takes in a loss_fun_builder and a batch_fun
-function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, iterations::Int; a=0.01, sd=0.01, m=nothing, v=nothing)
+function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, iterations::Int; a=0.01, sd=0.01, m=nothing, v=nothing, validation_loss_fun::Function=nothing)
     init_params, mask = weight_mask_view(root(parts))
     zero = deepcopy(init_params)
     zero .-= zero
@@ -82,44 +82,64 @@ function train!(parts::AFMModelParts, loss_fun::Function, population_size::Int, 
         push!(population, InstanceEval{typeof(zero)}(mutate!(deepcopy(init_params), mask, sd), 0.0))
     end
 
+
+    train_loss = Vector{Float64}()
+    test_loss = Vector{Float64}()
     for i in 1:iterations
-        println("Iteration: ", i)
-        # mutate
-        for p in population
-            mutate!(p.params, mask, sd)
-        end
+        try
+            println("Iteration: ", i)
+            # mutate
+            for p in population
+                mutate!(p.params, mask, sd)
+            end
+    
+            # evaluate
+            evaluate_all!(parts, init_params, population, loss_fun)
+    
+            # report average performance
+            performance = sum(x -> x.eval, population) / length(population)
 
-        # evaluate
-        evaluate_all!(parts, init_params, population, loss_fun)
+            push!(train_loss, performance)
+            println("iteration: ", i, " performance: ", performance)
 
-        # report average performance
-        performance = sum(x -> x.eval, population) / length(population)
-        println("iteration: ", i, " performance: ", performance)
+            if !isnothing(validation_loss_fun)
+                # init_params .= center_params
+                test_performance = validation_loss_fun(parts)
+                push!(test_loss, test_performance)
+                println("iteration: ", i, " test performance: ", test_performance)
+            end
 
-        # apply rank transform
-        sort!(population, by = p -> p.eval)
-        for (i, p) in enumerate(population)
-            p.eval = (((i-1) / (population_size-1)) * 2) - 1
-        end
-
-        # compute gradient approximation
-        gradient_approx .= zero
-        for p in population
-            gradient_approx .+= p.params * p.eval
-        end
-        gradient_approx ./= population_size
-
-        # update center_params with gradient approximation
-        adam!(center_params, mask, gradient_approx, a, 0.9, 0.999, m, v, mh, vh, i)
-
-        # copy center_params to population
-        for p in population
-            p.params .= center_params
+    
+            # apply rank transform
+            sort!(population, by = p -> p.eval)
+            for (i, p) in enumerate(population)
+                p.eval = (((i-1) / (population_size-1)) * 2) - 1
+            end
+    
+            # compute gradient approximation
+            gradient_approx .= zero
+            for p in population
+                gradient_approx .+= p.params * p.eval
+            end
+            gradient_approx ./= population_size
+    
+            # update center_params with gradient approximation
+            adam!(center_params, mask, gradient_approx, a, 0.9, 0.999, m, v, mh, vh, i)
+    
+            # copy center_params to population
+            for p in population
+                p.params .= center_params
+            end
+        catch e
+            if typeof(e) <: InterruptException
+                init_params .= center_params
+                return m, v, train_loss, test_loss
+            end
         end
     end
 
     init_params .= center_params
-    m, v
+    m, v, train_loss, test_loss
 end
 
 # every iteration a new batch is generated as opposed to the above function which delegates data handling to the loss_fun
