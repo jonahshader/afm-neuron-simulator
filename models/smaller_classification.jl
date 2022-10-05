@@ -60,21 +60,21 @@ function loss_fun_builder(xtrain, ytrain)
     return custom_loss_fun
 end
 
-function run()
+function run_model(pop_size=20, iterations=666, variations_per_class=3, noise_scalar=0.25)
     model = make_model()
     parts = build_model_parts(model, (0.0, 20 * PICO), input_to_spikes(zeros(Float64, 7 * 7 + 1)))
 
-    xtrain, ytrain, viewable_images_train = load_data(variations_per_class=100, noise_scalar=0.25)
-    xtest, ytest, viewable_images_test = load_data(variations_per_class=100, noise_scalar=0.25)
+    xtrain, ytrain, viewable_images_train = load_data(variations_per_class=variations_per_class, noise_scalar=noise_scalar)
+    xtest, ytest, viewable_images_test = load_data(variations_per_class=variations_per_class, noise_scalar=noise_scalar)
 
     loss_fun = loss_fun_builder(xtrain, ytrain)
     loss_fun_test = loss_fun_builder(xtest, ytest)
 
-    m, v, train_loss, test_loss = train!(parts, loss_fun, 20, 10000; validation_loss_fun=loss_fun_test)
+    m, v, train_loss, test_loss = train!(parts, loss_fun, pop_size, iterations; validation_loss_fun=loss_fun_test)
     # parts, loss_fun, xtrain, ytrain, viewable_images, m, v
     return parts, loss_fun, loss_fun_test, xtrain, ytrain, xtest, ytest, viewable_images_train, viewable_images_test, m, v, train_loss, test_loss
 end
 
-# parts, loss_fun, xtrain, ytrain, viewable_images, m, v = run();
-# parts, loss_fun, loss_fun_test, xtrain, ytrain, xtest, ytest, viewable_images_train, viewable_images_test, m, v, train_loss, test_loss = run();
+# parts, loss_fun, xtrain, ytrain, viewable_images, m, v = run_model();
+# parts, loss_fun, loss_fun_test, xtrain, ytrain, xtest, ytest, viewable_images_train, viewable_images_test, m, v, train_loss, test_loss = run_model();
 # build_and_solve(parts.root, (0.0, 2e-11), input_to_spikes(xtrain[1]; peak_current=0.0001, spike_center=21e-13, spike_width=9e-13)) |> plot_output
