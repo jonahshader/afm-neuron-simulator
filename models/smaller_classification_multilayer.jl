@@ -39,18 +39,7 @@ function make_model()
     input_size = (7*7) + 1
     output_size = 4
 
-    classifier = Component(input_size, output_size)
-    add_neurons!(classifier, 50)
-    init_component_weights!(classifier, 0.04, 0.0, 0.0, 1.0)
-
-    # increase the size of the clock weights
-    # for neuron in neuron_labels(classifier)
-    #     set_weight!(classifier, input_size, (neuron,), randn() * 0.4)
-    # end
-
-    set_nonzeros_trainable!(classifier)
-
-    classifier
+    make_chain([input_size, 50, 25, output_size]; init_scale=0.8)
 end
 
 function loss_fun_builder(xtrain, ytrain)
@@ -60,9 +49,9 @@ function loss_fun_builder(xtrain, ytrain)
     return custom_loss_fun
 end
 
-function run_model(pop_size=20, iterations=666, variations_per_class=3, noise_scalar=0.25)
+function run_model(pop_size=10, iterations=666, variations_per_class=3, noise_scalar=0.25)
     model = make_model()
-    parts = build_model_parts(model, (0.0, 20 * PICO), input_to_spikes(zeros(Float64, 7 * 7 + 1)))
+    parts = build_model_parts(model, (0.0, 40 * PICO), input_to_spikes(zeros(Float64, 7 * 7 + 1)))
 
     xtrain, ytrain, viewable_images_train = load_data(variations_per_class=variations_per_class, noise_scalar=noise_scalar)
     xtest, ytest, viewable_images_test = load_data(variations_per_class=variations_per_class, noise_scalar=noise_scalar)
@@ -70,7 +59,7 @@ function run_model(pop_size=20, iterations=666, variations_per_class=3, noise_sc
     loss_fun = loss_fun_builder(xtrain, ytrain)
     loss_fun_test = loss_fun_builder(xtest, ytest)
 
-    m, v, train_loss, test_loss = train!(parts, loss_fun, pop_size, iterations; validation_loss_fun=loss_fun_test)
+    m, v, train_loss, test_loss = train!(parts, loss_fun, pop_size, iterations; validation_loss_fun=loss_fun_test, sd=0.001)
     # parts, loss_fun, xtrain, ytrain, viewable_images, m, v
     return parts, loss_fun, loss_fun_test, xtrain, ytrain, xtest, ytest, viewable_images_train, viewable_images_test, m, v, train_loss, test_loss
 end
