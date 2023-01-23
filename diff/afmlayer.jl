@@ -26,9 +26,19 @@ function AFMLayer((in, out)::Pair{<:Integer, <:Integer}; local_bias = false, a =
 end
 
 
-function (m::AFMLayer)(Φ, dΦ)
+# function (m::AFMLayer)(Φ, dΦ)
+#     voltage = dΦ .* m.beta
+#     current = m.fc(voltage) .+ m.bias
+#     dudΦ = (m.sigma .* current .- m.a .* dΦ .- (m.we./2) .* sin.(2 .* Φ)) .* m.wex
+#     return dΦ, dudΦ
+# end
+
+function (m::AFMLayer)(u0)
+    batch_size = size(u0, 3)
+    Φ = u0[:, 1, :]
+    dΦ = u0[:, 2, :]
     voltage = dΦ .* m.beta
     current = m.fc(voltage) .+ m.bias
     dudΦ = (m.sigma .* current .- m.a .* dΦ .- (m.we./2) .* sin.(2 .* Φ)) .* m.wex
-    return dΦ, dudΦ
+    return hcat(reshape(dΦ, :, 1, batch_size), reshape(dudΦ, :, 1, batch_size))
 end
